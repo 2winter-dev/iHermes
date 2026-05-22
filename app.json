@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "iHermes",
+    "slug": "iHermes",
+    "owner": "zical",
+    "version": "1.0.0",
+    "description": "iHermes 是 Hermes 手机版客户端，支持 iOS、Android 与 Web App，多实例连接、会话对话、工具调用可视化。",
+    "orientation": "portrait",
+    "icon": "./assets/hermes-logo.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.winter.ihermes"
+    },
+    "android": {
+      "package": "com.winter.ihermes",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/hermes-logo.png",
+        "backgroundImage": "./assets/hermes-logo.png",
+        "monochromeImage": "./assets/hermes-logo.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "name": "iHermes",
+      "shortName": "iHermes",
+      "lang": "zh-CN",
+      "display": "standalone",
+      "themeColor": "#EBC27A",
+      "backgroundColor": "#FBF4E8",
+      "favicon": "./assets/hermes-logo.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FBF4E8",
+          "image": "./assets/hermes-logo.png",
+          "imageWidth": 120,
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "cli": {
+      "appVersionSource": "remote"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fc1ed858-ee7d-4605-bf65-a9d1b8c6d3b2"
+      }
+    }
+  }
+}

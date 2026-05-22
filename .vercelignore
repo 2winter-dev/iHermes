@@ -1,0 +1,17 @@
+# Native build artifacts (very large)
+android
+ios
+
+# Local dependency/cache folders
+node_modules
+.expo
+.gradle
+
+# Generated outputs (Vercel builds these)
+dist
+
+# Local hosted APK artifacts (serve externally instead)
+web
+
+# Misc local files
+.DS_Store
