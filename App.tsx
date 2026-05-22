@@ -71,7 +71,7 @@ const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 const WEB_MAX_WIDTH = 520;
 const AUTHOR_XHS_URL = 'https://xhslink.com/m/1pRHxd9V2xH';
 const ANDROID_APK_DOWNLOAD_URL =
-  'https://github.com/zical/iHermes/releases/latest/download/iHermes-android.apk';
+  'https://github.com/2winter-dev/iHermes/releases/tag/beta0.1';
 const SEO_TITLE = 'iHermes App - Hermes 手机版（iOS / Android）';
 const SEO_DESCRIPTION =
   'iHermes 是 Hermes 手机版客户端，支持 iOS、Android 与 Web App，多实例连接、会话对话、工具调用可视化。';
