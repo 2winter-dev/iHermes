@@ -16,7 +16,6 @@ import {
   Pressable,
 
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -24,6 +23,10 @@ import {
 
 import { HermesApiClient } from './src/api/hermes/client';
 import { HermesChatMessage, HermesConnection } from './src/api/hermes/types';
+import { AnimatedMessageBubble } from './src/components/chat_bubble';
+import { ActionButton, AnimatedCard, TabButton, ToolTextButton } from './src/components/ui';
+import { APP_CONFIG } from './src/config/app_config';
+import { LanguagePreference, resolveLanguage, SupportedLanguage, translations } from './src/i18n/translations';
 import { ChatHistoryMap, loadChatHistoryMap, saveChatHistoryMap } from './src/storage/chat_history';
 import { loadConnections, saveConnections } from './src/storage/connections';
 import {
@@ -32,13 +35,12 @@ import {
   loadPreferences,
   savePreferences,
 } from './src/storage/preferences';
-import { borderWidths, radii, ThemeMode, themes } from './src/theme/tokens';
+import { styles, WEB_MAX_WIDTH } from './src/styles/app_styles';
+import { ThemeMode, themes } from './src/theme/tokens';
 
 type TabKey = 'instances' | 'settings';
 type ConnectionState = 'idle' | 'testing' | 'online' | 'offline';
 type ToolStepStatus = 'running' | 'success' | 'failed';
-type SupportedLanguage = 'zh' | 'en';
-type LanguagePreference = 'device' | SupportedLanguage;
 
 type ChatBubble = HermesChatMessage & {
   id: string;
@@ -68,234 +70,7 @@ const emptyForm = (defaultModel: string): ConnectionFormState => ({
   model: defaultModel,
 });
 
-const APP_VERSION = 'v0.1';
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
-const WEB_MAX_WIDTH = 520;
-const AUTHOR_XHS_URL = 'https://xhslink.com/m/1pRHxd9V2xH';
-const ANDROID_APK_DOWNLOAD_URL =
-  'https://github.com/2winter-dev/iHermes/releases/tag/beta0.1';
-const OPEN_SOURCE_REPO_URL = 'https://github.com/2winter-dev/iHermes';
-const translations = {
-  zh: {
-    notTested: '未测试',
-    unknown: '未知',
-    statusOnline: '在线',
-    statusOffline: '离线',
-    statusTesting: '测试中',
-    statusUnchecked: '未检测',
-    missingFieldsTitle: '缺少字段',
-    missingFieldsConnection: '请填写名称、Base URL 和 API Key。',
-    missingFieldsTest: '请先填写 Base URL 和 API Key。',
-    currentInstance: '当前实例',
-    noInstanceSelectedTitle: '未选择实例',
-    noInstanceSelectedDesc: '请先在“已保存实例”里选择一个实例。',
-    updatedHint: '连接已更新，建议重新测试',
-    savedHint: '连接已保存，建议测试',
-    heroSubtitle: '本地 Hermes 会话助手 · 聚焦对话，随时开聊',
-    savedInstances: '已保存实例',
-    noSavedInstances: '暂无实例，先在下方保存一个。',
-    modelLabel: '模型',
-    edit: '编辑',
-    instanceManagement: '实例管理',
-    expand: '展开',
-    collapse: '收起',
-    namePlaceholder: '名称（例如：本机默认）',
-    urlPlaceholder: 'Base URL（例如：http://192.168.1.8:8642）',
-    apiKeyPlaceholder: 'API Key',
-    modelAutoHint: '模型将于连接成功后自动获取',
-    save: '保存',
-    updateSave: '更新保存',
-    testingLabel: '检测中...',
-    testConnection: '检测连接',
-    delete: '删除',
-    collapsedHint: '已折叠，点击“展开”进行新增或编辑。',
-    settings: '设置功能',
-    theme: '主题',
-    themeWarm: '暖色',
-    themeSoft: '浅淡',
-    language: '语言',
-    langDevice: '跟随设备',
-    langChinese: '中文',
-    langEnglish: 'English',
-    animations: '动画',
-    on: '开',
-    off: '关',
-    versionInfo: '版本信息',
-    hermesVersion: 'Hermes 版本',
-    appVersion: 'App 版本',
-    help: '实验帮助',
-    authorContact: '作者联系',
-    installPwa: '安装到主屏幕（PWA）',
-    installIhermes: '安装 iHermes',
-    iosPwaHint: 'iOS Safari：点击底部“分享”按钮，再点“添加到主屏幕”。',
-    androidPwaHint: 'Android Chrome：右上角菜单中选择“添加到主屏幕”。',
-    howToApiKey: '如何获取 API Key',
-    faq: 'FAQ',
-    apkDownload: 'Android 下载',
-    downloadAndroidApk: '下载 Android APK',
-    tabInstances: '实例',
-    tabSettings: '设置',
-    tabChat: '聊天',
-    chatTitle: '聊天',
-    thinking: '思考中',
-    close: '关闭',
-    toolSteps: '工具调用步骤',
-    stepSuccess: '成功',
-    stepFailed: '失败',
-    stepRunning: '进行中',
-    clear: '清空',
-    retry: '重试',
-    copyReply: '复制回复',
-    currentInstanceLabel: '当前实例',
-    notSelected: '未选择',
-    sendFirst: '发送第一条消息开始会话。',
-    inputMessage: '输入消息',
-    sending: '发送中',
-    send: '发送',
-    userLabel: '你',
-    assistantThinking: 'Hermes 正在思考...',
-    assistantReplying: 'Hermes 正在回复...',
-    callingTool: '正在调用工具',
-    callingToolFallback: '正在调用工具...',
-    emptyResponse: '(空响应)',
-    noCopyContentTitle: '暂无内容',
-    noCopyContentDesc: '还没有可复制的 Hermes 回复。',
-    copiedTitle: '已复制',
-    copiedReplyDesc: '最后一条 Hermes 回复已复制到剪贴板。',
-    copiedBubbleDesc: '气泡内容已复制。',
-    connectSuccess: '连接成功，配置模型',
-    apiModel: 'API模型',
-    connectFailed: '连接失败',
-    requestFailed: '请求失败',
-    retryFailed: '重试失败',
-    apiHelp1: '1. 在 Hermes 节点编辑 `~/.hermes/.env`。',
-    apiHelp2: '2. 写入 `API_SERVER_ENABLED=true`。',
-    apiHelp3: '3. 生成 key（推荐）：`openssl rand -hex 32`。',
-    apiHelp4: '4. 或者手动输入：自己写一串 32 位以上、尽量随机且不易猜到的字符串（字母+数字）。',
-    apiHelp5: '5. 写入 `API_SERVER_KEY=<你的key>`。',
-    apiHelp6: '6. 启动 `hermes gateway`，在实例里填 Base URL + API Key。',
-    faqQ1: 'Q1: Web/PWA 能直连 `192.168.x.x` 吗？',
-    faqA1: 'A1: 通常会被 HTTPS + CORS 限制，推荐先给 Hermes 提供 HTTPS 入口。',
-    faqQ2: 'Q2: 怎么把本地 Hermes 暴露成 HTTPS？',
-    faqA2: 'A2: 推荐 Cloudflare Tunnel 或 Tailscale Funnel，再在实例里填写对应 https 地址。',
-    faqQ3: 'Q3: 移动端建议用哪个？',
-    faqA3: 'A3: 建议优先使用 Android 版本，连接本地网关更稳定。',
-    openSource: '开源项目',
-    viewRepository: '查看 GitHub 仓库',
-  },
-  en: {
-    notTested: 'Not tested',
-    unknown: 'Unknown',
-    statusOnline: 'Online',
-    statusOffline: 'Offline',
-    statusTesting: 'Testing',
-    statusUnchecked: 'Unchecked',
-    missingFieldsTitle: 'Missing fields',
-    missingFieldsConnection: 'Please fill in Name, Base URL, and API Key.',
-    missingFieldsTest: 'Please enter Base URL and API Key first.',
-    currentInstance: 'Current instance',
-    noInstanceSelectedTitle: 'No instance selected',
-    noInstanceSelectedDesc: 'Please select one from Saved Instances first.',
-    updatedHint: 'Connection updated. Please test again.',
-    savedHint: 'Connection saved. Please run a connection test.',
-    heroSubtitle: 'Local Hermes chat assistant · chat-first workflow',
-    savedInstances: 'Saved Instances',
-    noSavedInstances: 'No saved instance yet. Create one below.',
-    modelLabel: 'Model',
-    edit: 'Edit',
-    instanceManagement: 'Instance Management',
-    expand: 'Expand',
-    collapse: 'Collapse',
-    namePlaceholder: 'Name (for example: Local Default)',
-    urlPlaceholder: 'Base URL (for example: http://192.168.1.8:8642)',
-    apiKeyPlaceholder: 'API Key',
-    modelAutoHint: 'Model is auto-detected after successful connection',
-    save: 'Save',
-    updateSave: 'Update',
-    testingLabel: 'Testing...',
-    testConnection: 'Test Connection',
-    delete: 'Delete',
-    collapsedHint: 'Collapsed. Tap "Expand" to add or edit.',
-    settings: 'Settings',
-    theme: 'Theme',
-    themeWarm: 'Warm',
-    themeSoft: 'Soft',
-    language: 'Language',
-    langDevice: 'Device',
-    langChinese: 'Chinese',
-    langEnglish: 'English',
-    animations: 'Animations',
-    on: 'On',
-    off: 'Off',
-    versionInfo: 'Version',
-    hermesVersion: 'Hermes Version',
-    appVersion: 'App Version',
-    help: 'Help',
-    authorContact: 'Author',
-    installPwa: 'Install to Home Screen (PWA)',
-    installIhermes: 'Install iHermes',
-    iosPwaHint: 'iOS Safari: tap Share, then Add to Home Screen.',
-    androidPwaHint: 'Android Chrome: open menu, then Add to Home screen.',
-    howToApiKey: 'How to get API Key',
-    faq: 'FAQ',
-    apkDownload: 'Android Download',
-    downloadAndroidApk: 'Download Android APK',
-    tabInstances: 'Instances',
-    tabSettings: 'Settings',
-    tabChat: 'Chat',
-    chatTitle: 'Chat',
-    thinking: 'Thinking',
-    close: 'Close',
-    toolSteps: 'Tool Steps',
-    stepSuccess: 'Success',
-    stepFailed: 'Failed',
-    stepRunning: 'Running',
-    clear: 'Clear',
-    retry: 'Retry',
-    copyReply: 'Copy Reply',
-    currentInstanceLabel: 'Current',
-    notSelected: 'Not selected',
-    sendFirst: 'Send your first message to start.',
-    inputMessage: 'Type a message',
-    sending: 'Sending',
-    send: 'Send',
-    userLabel: 'You',
-    assistantThinking: 'Hermes is thinking...',
-    assistantReplying: 'Hermes is replying...',
-    callingTool: 'Calling tool',
-    callingToolFallback: 'Calling tool...',
-    emptyResponse: '(empty response)',
-    noCopyContentTitle: 'No content',
-    noCopyContentDesc: 'No Hermes reply available to copy.',
-    copiedTitle: 'Copied',
-    copiedReplyDesc: 'Latest Hermes reply copied.',
-    copiedBubbleDesc: 'Message copied.',
-    connectSuccess: 'connected, selected model',
-    apiModel: 'API model',
-    connectFailed: 'connection failed',
-    requestFailed: 'Request failed',
-    retryFailed: 'Retry failed',
-    apiHelp1: '1. Edit `~/.hermes/.env` on your Hermes host.',
-    apiHelp2: '2. Set `API_SERVER_ENABLED=true`.',
-    apiHelp3: '3. Generate a key (recommended): `openssl rand -hex 32`.',
-    apiHelp4: '4. Or manually use a random 32+ character string (letters + numbers).',
-    apiHelp5: '5. Set `API_SERVER_KEY=<your_key>`.',
-    apiHelp6: '6. Start `hermes gateway`, then fill Base URL + API Key in iHermes.',
-    faqQ1: 'Q1: Can Web/PWA connect directly to `192.168.x.x`?',
-    faqA1: 'A1: Usually blocked by HTTPS + CORS policy. Prefer exposing Hermes over HTTPS first.',
-    faqQ2: 'Q2: How can I expose local Hermes via HTTPS?',
-    faqA2: 'A2: Use Cloudflare Tunnel or Tailscale Funnel, then fill that HTTPS URL.',
-    faqQ3: 'Q3: Which mobile client is recommended?',
-    faqA3: 'A3: Android app is recommended for more stable local gateway connectivity.',
-    openSource: 'Open Source',
-    viewRepository: 'View GitHub Repository',
-  },
-} as const;
-const SEO_TITLE = 'iHermes App - Hermes 手机版（iOS / Android）';
-const SEO_DESCRIPTION =
-  'iHermes 是 Hermes 手机版客户端，支持 iOS、Android 与 Web App，多实例连接、会话对话、工具调用可视化。';
-const SEO_KEYWORDS =
-  'Hermes app,Hermes iOS,Hermes Android,Hermes 手机版,本地 Hermes,AI Agent App,多实例会话';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('instances');
@@ -342,15 +117,10 @@ export default function App() {
       (Platform.OS === 'web' && typeof navigator !== 'undefined' ? navigator.language : '');
     return locale.toLowerCase();
   }, []);
-  const resolvedLanguage: SupportedLanguage = useMemo(() => {
-    if (languagePreference === 'zh' || languagePreference === 'en') {
-      return languagePreference;
-    }
-    if (deviceLocale.startsWith('zh')) {
-      return 'zh';
-    }
-    return 'en';
-  }, [deviceLocale, languagePreference]);
+  const resolvedLanguage: SupportedLanguage = useMemo(
+    () => resolveLanguage(languagePreference, deviceLocale),
+    [deviceLocale, languagePreference],
+  );
   const t = translations[resolvedLanguage];
 
   const lastAssistantText = useMemo(() => {
@@ -372,6 +142,7 @@ export default function App() {
   }, [isSending, messages, selectedConnection]);
 
   useEffect(() => {
+    // Bootstrap: load local connections/preferences/history and auto-connect first instance.
     (async () => {
       const [savedConnections, savedPrefs, savedHistory] = await Promise.all([
         loadConnections(),
@@ -417,12 +188,14 @@ export default function App() {
     if (!prefsLoaded) {
       return;
     }
+    // Persist user-facing preferences whenever they change.
     const next: AppPreferences = { themeMode, animationsEnabled, defaultModel, languagePreference };
     void savePreferences(next);
   }, [animationsEnabled, defaultModel, languagePreference, prefsLoaded, themeMode]);
 
   useEffect(() => {
     if (!selectedId) return;
+    // Keep per-instance chat history in local storage for quick restoration.
     setChatHistoryMap((prev) => {
       const next: ChatHistoryMap = {
         ...prev,
@@ -451,9 +224,10 @@ export default function App() {
     if (Platform.OS !== 'web' || typeof document === 'undefined' || typeof window === 'undefined') {
       return;
     }
+    // Inject static SEO metadata for web clients and social crawlers.
 
     const previousTitle = document.title;
-    document.title = SEO_TITLE;
+    document.title = APP_CONFIG.seo.title;
 
     const ensuredNodes: Element[] = [];
 
@@ -483,21 +257,21 @@ export default function App() {
     const canonicalUrl = `${origin}/`;
     const imageUrl = `${origin}/hermes-logo.png`;
 
-    upsertMeta('name', 'description', SEO_DESCRIPTION);
-    upsertMeta('name', 'keywords', SEO_KEYWORDS);
+    upsertMeta('name', 'description', APP_CONFIG.seo.description);
+    upsertMeta('name', 'keywords', APP_CONFIG.seo.keywords);
     upsertMeta('name', 'robots', 'index,follow,max-image-preview:large');
     upsertMeta('name', 'theme-color', '#EBC27A');
 
     upsertMeta('property', 'og:type', 'website');
     upsertMeta('property', 'og:site_name', 'iHermes');
-    upsertMeta('property', 'og:title', SEO_TITLE);
-    upsertMeta('property', 'og:description', SEO_DESCRIPTION);
+    upsertMeta('property', 'og:title', APP_CONFIG.seo.title);
+    upsertMeta('property', 'og:description', APP_CONFIG.seo.description);
     upsertMeta('property', 'og:url', canonicalUrl);
     upsertMeta('property', 'og:image', imageUrl);
 
     upsertMeta('name', 'twitter:card', 'summary_large_image');
-    upsertMeta('name', 'twitter:title', SEO_TITLE);
-    upsertMeta('name', 'twitter:description', SEO_DESCRIPTION);
+    upsertMeta('name', 'twitter:title', APP_CONFIG.seo.title);
+    upsertMeta('name', 'twitter:description', APP_CONFIG.seo.description);
     upsertMeta('name', 'twitter:image', imageUrl);
 
     upsertLink('canonical', canonicalUrl);
@@ -518,8 +292,8 @@ export default function App() {
           '@type': 'WebSite',
           name: 'iHermes',
           url: canonicalUrl,
-          description: SEO_DESCRIPTION,
-          keywords: SEO_KEYWORDS,
+          description: APP_CONFIG.seo.description,
+          keywords: APP_CONFIG.seo.keywords,
           inLanguage: 'zh-CN',
         },
         {
@@ -527,11 +301,11 @@ export default function App() {
           name: 'iHermes',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Web, iOS, Android',
-          description: SEO_DESCRIPTION,
-          keywords: SEO_KEYWORDS,
+          description: APP_CONFIG.seo.description,
+          keywords: APP_CONFIG.seo.keywords,
           url: canonicalUrl,
           image: imageUrl,
-          softwareVersion: APP_VERSION,
+          softwareVersion: APP_CONFIG.appVersion,
           publisher: {
             '@type': 'Organization',
             name: 'iHermes',
@@ -542,7 +316,7 @@ export default function App() {
           name: 'iHermes',
           url: canonicalUrl,
           logo: imageUrl,
-          sameAs: [AUTHOR_XHS_URL],
+          sameAs: [APP_CONFIG.authorXhsUrl],
         },
       ],
     });
@@ -758,6 +532,7 @@ export default function App() {
     updateFormModel?: boolean;
     preferredModel?: string;
   }) {
+    // Single source of truth for connection test + remote model/version sync.
     setIsTesting(true);
     setConnectionState('testing');
     try {
@@ -865,6 +640,7 @@ export default function App() {
     setToolStepsExpanded(true);
 
     try {
+      // Preferred path: stream assistant tokens and tool-call events in real time.
       await streamChatCompletion({
         baseUrl: selectedConnection.baseUrl,
         apiKey: selectedConnection.apiKey,
@@ -891,6 +667,7 @@ export default function App() {
       completeRunningToolSteps(true);
       setChatPhaseText('');
     } catch {
+      // Fallback path for gateways/runtimes without streaming support.
       const client = new HermesApiClient(selectedConnection);
       const response = await client.chatCompletion({
         model: selectedConnection.model || defaultModel,
@@ -985,6 +762,7 @@ export default function App() {
 
   function pushToolStep(name?: string) {
     const stepName = name?.trim() ? name.trim() : 'unknown_tool';
+    // Mark previous running step as complete before opening the next step.
     setToolSteps((prev) => {
       const next = prev.map((item) =>
         item.status === 'running'
@@ -1342,7 +1120,7 @@ export default function App() {
                     <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.versionInfo}</Text>
                     <View style={styles.versionRow}>
                       <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.hermesVersion}: {hermesVersion}</Text>
-                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.appVersion}: {APP_VERSION}</Text>
+                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.appVersion}: {APP_CONFIG.appVersion}</Text>
                     </View>
                   </View>
                 </AnimatedCard>
@@ -1356,7 +1134,7 @@ export default function App() {
                         styles.contactLinkButton,
                         { borderColor: theme.borderSoft, backgroundColor: theme.inputBg },
                       ]}
-                      onPress={() => void Linking.openURL(AUTHOR_XHS_URL)}
+                      onPress={() => void Linking.openURL(APP_CONFIG.authorXhsUrl)}
                     >
                       <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>Xiaohongshu: 2winter</Text>
                     </Pressable>
@@ -1409,7 +1187,7 @@ export default function App() {
                         styles.contactLinkButton,
                         { borderColor: theme.borderSoft, backgroundColor: theme.inputBg },
                       ]}
-                      onPress={() => void Linking.openURL(OPEN_SOURCE_REPO_URL)}
+                      onPress={() => void Linking.openURL(APP_CONFIG.openSourceRepoUrl)}
                     >
                       <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>{t.viewRepository}</Text>
                     </Pressable>
@@ -1421,7 +1199,7 @@ export default function App() {
                             styles.contactLinkButton,
                             { borderColor: theme.borderSoft, backgroundColor: theme.inputBg },
                           ]}
-                          onPress={() => void Linking.openURL(ANDROID_APK_DOWNLOAD_URL)}
+                          onPress={() => void Linking.openURL(APP_CONFIG.androidApkDownloadUrl)}
                         >
                           <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>{t.downloadAndroidApk}</Text>
                         </Pressable>
@@ -1650,6 +1428,7 @@ async function streamChatCompletion({
   onDelta: (delta: string) => void;
   onToolEvent?: (toolName?: string) => void;
 }): Promise<void> {
+  // OpenAI-compatible SSE parser. Handles token deltas plus tool-call deltas.
   const normalized = HermesApiClient.normalizeBaseUrl(baseUrl);
   const response = await fetch(`${normalized}/v1/chat/completions`, {
     method: 'POST',
@@ -1730,284 +1509,13 @@ async function streamChatCompletion({
   }
 }
 
-function AnimatedCard({
-  children,
-  delay,
-  enabled,
-}: {
-  children: React.ReactNode;
-  delay: number;
-  enabled: boolean;
-}) {
-  const fade = useRef(new Animated.Value(enabled ? 0 : 1)).current;
-  const rise = useRef(new Animated.Value(enabled ? 6 : 0)).current;
-
-  useEffect(() => {
-    if (!enabled) {
-      fade.setValue(1);
-      rise.setValue(0);
-      return;
-    }
-
-    Animated.parallel([
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: 260,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: USE_NATIVE_DRIVER,
-      }),
-      Animated.timing(rise, {
-        toValue: 0,
-        duration: 260,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: USE_NATIVE_DRIVER,
-      }),
-    ]).start();
-  }, [delay, enabled, fade, rise]);
-
-  return <Animated.View style={{ opacity: fade, transform: [{ translateY: rise }] }}>{children}</Animated.View>;
-}
-
-function AnimatedMessageBubble({
-  message,
-  index,
-  enabled,
-  onLongPress,
-  borderColor,
-  userBubble,
-  assistantBubble,
-  inkColor,
-  softInkColor,
-  userLabel,
-  assistantLabel,
-  thinkingText,
-}: {
-  message: ChatBubble;
-  index: number;
-  enabled: boolean;
-  onLongPress: () => void;
-  borderColor: string;
-  userBubble: string;
-  assistantBubble: string;
-  inkColor: string;
-  softInkColor: string;
-  userLabel: string;
-  assistantLabel: string;
-  thinkingText: string;
-}) {
-  const fade = useRef(new Animated.Value(enabled ? 0 : 1)).current;
-  const slide = useRef(new Animated.Value(enabled ? 10 : 0)).current;
-
-  useEffect(() => {
-    if (!enabled) {
-      fade.setValue(1);
-      slide.setValue(0);
-      return;
-    }
-
-    Animated.parallel([
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: 260,
-        delay: Math.min(index * 26, 180),
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: USE_NATIVE_DRIVER,
-      }),
-      Animated.timing(slide, {
-        toValue: 0,
-        duration: 260,
-        delay: Math.min(index * 26, 180),
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: USE_NATIVE_DRIVER,
-      }),
-    ]).start();
-  }, [enabled, fade, index, slide]);
-
-  return (
-    <Animated.View style={{ opacity: fade, transform: [{ translateY: slide }] }}>
-      <View style={[styles.bubbleRow, message.role === 'user' ? styles.userBubbleRow : styles.assistantBubbleRow]}>
-        {message.role === 'assistant' ? (
-          <Image source={require('./assets/hermes-logo.png')} style={styles.assistantAvatar} />
-        ) : null}
-        <Pressable
-          onLongPress={onLongPress}
-          delayLongPress={280}
-          style={[
-            styles.bubble,
-            message.role === 'user' ? styles.userBubbleWrap : styles.assistantBubbleWrap,
-            { borderColor, backgroundColor: message.role === 'user' ? userBubble : assistantBubble },
-          ]}
-        >
-          <View style={styles.bubbleHeader}>
-            <Text style={[styles.bubbleRole, { color: softInkColor }]}>{message.role === 'user' ? userLabel : assistantLabel}</Text>
-            <Text style={[styles.bubbleTime, { color: softInkColor }]}>{formatTime(message.timestamp)}</Text>
-          </View>
-          {message.role === 'assistant' && message.content.trim() === '' ? (
-            <SkeletonThinking inkColor={inkColor} text={thinkingText} />
-          ) : (
-            <Text style={[styles.bubbleText, { color: inkColor }]}>{message.content}</Text>
-          )}
-        </Pressable>
-      </View>
-    </Animated.View>
-  );
-}
-
-function SkeletonThinking({ inkColor, text }: { inkColor: string; text: string }) {
-  const shimmer = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(shimmer, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: USE_NATIVE_DRIVER,
-      }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [shimmer]);
-
-  const opacity = shimmer.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.25, 0.85, 0.25],
-  });
-
-  return (
-    <View style={styles.skeletonWrap}>
-      <View style={styles.thinkingRow}>
-        <ActivityIndicator size="small" color={inkColor} />
-        <Text style={[styles.thinkingText, { color: inkColor }]}>{text}</Text>
-      </View>
-      <Animated.View style={[styles.skeletonLineLg, { opacity }]} />
-      <Animated.View style={[styles.skeletonLineMd, { opacity }]} />
-      <Animated.View style={[styles.skeletonLineSm, { opacity }]} />
-    </View>
-  );
-}
-
-function ActionButton({
-  label,
-  onPress,
-  disabled,
-  color,
-  borderColor,
-  textColor,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  color: string;
-  borderColor: string;
-  textColor: string;
-}) {
-  const pressScale = useRef(new Animated.Value(1)).current;
-
-  function animateTo(next: number) {
-    Animated.spring(pressScale, {
-      toValue: next,
-      speed: 30,
-      bounciness: 8,
-      useNativeDriver: USE_NATIVE_DRIVER,
-    }).start();
-  }
-
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      onPressIn={() => animateTo(0.965)}
-      onPressOut={() => animateTo(1)}
-      style={disabled ? styles.buttonDisabled : undefined}
-    >
-      <Animated.View
-        style={[
-          styles.button,
-          { backgroundColor: color, borderColor },
-          { transform: [{ scale: pressScale }] },
-        ]}
-      >
-        <Text style={[styles.buttonText, { color: textColor }]}>{label}</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-function ToolTextButton({
-  label,
-  onPress,
-  disabled,
-  color,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  color: string;
-}) {
-  return (
-    <Pressable onPress={onPress} disabled={disabled} style={styles.toolButton}>
-      <Text style={[styles.toolButtonText, { color }, disabled && styles.toolButtonTextDisabled]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function TabButton({
-  label,
-  icon,
-  active,
-  onPress,
-  color,
-  enabled,
-}: {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  active: boolean;
-  onPress: () => void;
-  color: string;
-  enabled: boolean;
-}) {
-  const scale = useRef(new Animated.Value(active ? 1.05 : 1)).current;
-
-  useEffect(() => {
-    if (!enabled) {
-      scale.setValue(active ? 1.05 : 1);
-      return;
-    }
-    Animated.spring(scale, {
-      toValue: active ? 1.08 : 1,
-      speed: 22,
-      bounciness: 8,
-      useNativeDriver: USE_NATIVE_DRIVER,
-    }).start();
-  }, [active, enabled, scale]);
-
-  return (
-    <Pressable style={styles.tabButton} onPress={onPress}>
-      <Animated.View style={{ alignItems: 'center', transform: [{ scale }] }}>
-        <Ionicons name={icon} size={18} color={color} style={{ opacity: active ? 1 : 0.68 }} />
-        <Text style={[styles.tabButtonText, { color, opacity: active ? 1 : 0.68 }]}>{label}</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
 }
 
 function extractHermesVersion(payload: unknown): string | null {
+  // Scan nested health payloads from different gateway formats and return first known version key.
   if (!payload || typeof payload !== 'object') return null;
   const stack: unknown[] = [payload];
   const keyPriority = ['hermes_version', 'version', 'app_version', 'server_version', 'build_version'];
@@ -2033,382 +1541,3 @@ function extractHermesVersion(payload: unknown): string | null {
 
   return null;
 }
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  safeAreaWeb: {
-    overflow: 'hidden',
-  },
-  webStage: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-  },
-  bgBlobTop: {
-    position: 'absolute',
-    top: -70,
-    right: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 120,
-    opacity: 0.65,
-  },
-  bgBlobBottom: {
-    position: 'absolute',
-    bottom: -70,
-    left: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 120,
-    opacity: 0.55,
-  },
-  mainWrap: { flex: 1, width: '100%', maxWidth: WEB_MAX_WIDTH },
-  keyboardAvoidingView: { flex: 1 },
-  container: { padding: 16, paddingTop: 50, paddingBottom: 110, gap: 12 },
-  heroCard: {
-    borderRadius: radii.xl,
-    borderWidth: borderWidths.thick,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    boxShadow: '0px 2px 4px rgba(115, 75, 40, 0.08)',
-    elevation: 1,
-  },
-  logo: {
-    width: 62,
-    height: 62,
-    borderRadius: radii.md,
-    borderWidth: borderWidths.thick,
-    backgroundColor: '#fff',
-  },
-  heroTextWrap: { flex: 1 },
-  title: { fontSize: 30, fontWeight: '800', letterSpacing: 0.3 },
-  subtitle: { fontSize: 13, marginTop: 2 },
-  card: {
-    borderRadius: radii.lg,
-    padding: 12,
-    borderWidth: borderWidths.thick,
-    gap: 8,
-    boxShadow: '0px 1px 2px rgba(89, 66, 45, 0.05)',
-    elevation: 1,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  cardTitle: { fontSize: 18, fontWeight: '700' },
-  statusWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statusDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1 },
-  statusText: { fontSize: 12, fontWeight: '600' },
-  input: { borderWidth: borderWidths.thick, borderRadius: radii.md, paddingHorizontal: 10, paddingVertical: 9, fontSize: 14 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  button: { borderRadius: radii.md, paddingHorizontal: 12, paddingVertical: 10, borderWidth: borderWidths.thick },
-  buttonDisabled: { opacity: 0.55 },
-  buttonText: { fontWeight: '700' },
-  hint: { fontSize: 13 },
-  connectionItem: {
-    borderWidth: borderWidths.thick,
-    borderRadius: radii.md,
-    padding: 10,
-    gap: 2,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  connectionMainArea: {
-    flex: 1,
-    gap: 2,
-  },
-  connectionEditButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#9b7c5f',
-    backgroundColor: 'rgba(255,255,255,0.7)',
-  },
-  connectionEditText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  connectionName: { fontWeight: '700' },
-  connectionMeta: { fontSize: 12 },
-  heroStatusWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-  },
-  heroStatusText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  foldToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
-  floatingBarWrap: { position: 'absolute', left: 0, right: 0, bottom: 14, alignItems: 'center', justifyContent: 'center' },
-  floatingBar: {
-    width: '100%',
-    maxWidth: WEB_MAX_WIDTH - 48,
-    borderRadius: radii.round,
-    borderWidth: borderWidths.thick,
-    height: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 26,
-    boxShadow: '0px 4px 8px rgba(0,0,0,0.12)',
-    elevation: 5,
-  },
-  tabButton: { minWidth: 70, alignItems: 'center' },
-  tabButtonText: { fontSize: 12, fontWeight: '700', marginTop: 2 },
-  chatButtonPlaceholder: { width: 88 },
-  chatFab: {
-    position: 'absolute',
-    top: -16,
-    minWidth: 88,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: borderWidths.thick,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    boxShadow: '0px 4px 8px rgba(0,0,0,0.16)',
-    elevation: 6,
-  },
-  chatFabDisabled: {
-    opacity: 1,
-    boxShadow: '0px 2px 4px rgba(0,0,0,0.08)',
-    elevation: 2,
-  },
-  chatFabText: { fontWeight: '800', fontSize: 14 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.22)', alignItems: 'center' },
-  modalOverlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 1,
-  },
-  chatSheetAvoid: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    maxHeight:'80%',
-    minHeight:'60%',
-    bottom: 0,
-    width: '100%',
-    maxWidth: WEB_MAX_WIDTH,
-    alignSelf: 'center',
-    zIndex: 2,
-    elevation: 8,
-  },
-  chatSheetAvoidWeb: {
-    left: undefined,
-    right: undefined,
-    width: '100%',
-    height: '100%',
-    margin:'auto',
-    // maxWidth: WEB_MAX_WIDTH,
-    alignSelf: 'center',
-  },
-  chatSheet: {
-   
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderWidth: borderWidths.thick,
-    borderBottomWidth: 0,
-    padding: 12,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 14,
-    gap: 8,
-    height: '100%',
-    width: '100%',
-    marginBottom: 0,
-  },
-  chatSheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  chatHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  thinkingChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-  },
-  thinkingChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  phaseText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: -2,
-  },
-  stepsPanel: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 8,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-  },
-  stepsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  stepsTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  stepsToggle: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  stepsList: {
-    marginTop: 8,
-    gap: 5,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  stepIndex: {
-    width: 16,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  stepName: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  stepStatus: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  chatToolsRow: { flexDirection: 'row', gap: 10 },
-  toolButton: { paddingVertical: 2 },
-  toolButtonText: { fontSize: 12, fontWeight: '700' },
-  toolButtonTextDisabled: { color: '#b59e87' },
-  chatBox: { borderWidth: borderWidths.thick, borderRadius: radii.md, minHeight: 220, backgroundColor: '#fffefc' },
-  chatBoxContent: { padding: 10, gap: 8 },
-  chatComposerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  chatInputInlineGrow: {
-    flex: 1,
-  },
-  bubbleRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  userBubbleRow: {
-    justifyContent: 'flex-end',
-  },
-  assistantBubbleRow: {
-    justifyContent: 'flex-start',
-  },
-  assistantAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: '#00000022',
-    backgroundColor: '#fff',
-    marginBottom: 2,
-  },
-  bubble: { borderRadius: radii.md, borderWidth: borderWidths.thick, padding: 10 },
-  userBubbleWrap: {
-    maxWidth: '72%',
-    minWidth: '28%',
-  },
-  assistantBubbleWrap: {
-    maxWidth: '84%',
-    minWidth: '30%',
-  },
-  bubbleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  bubbleRole: { fontSize: 12, fontWeight: '700' },
-  bubbleTime: { fontSize: 11, fontWeight: '600' },
-  bubbleText: { fontSize: 14, lineHeight: 20 },
-  thinkingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 2,
-  },
-  thinkingText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  skeletonWrap: {
-    gap: 8,
-    paddingVertical: 2,
-  },
-  skeletonLineLg: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: '#00000022',
-    width: '92%',
-  },
-  skeletonLineMd: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: '#00000018',
-    width: '78%',
-  },
-  skeletonLineSm: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: '#00000014',
-    width: '56%',
-  },
-  settingLabel: { fontSize: 14, fontWeight: '700', marginTop: 4 },
-  versionRow: {
-    gap: 2,
-  },
-  helpBox: {
-    borderWidth: 1,
-    borderColor: '#d6d3d1',
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    padding: 8,
-    gap: 4,
-  },
-  helpText: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  contactLinkButton: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  contactLinkText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
