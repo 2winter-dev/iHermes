@@ -21,6 +21,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
+    "android:assemble": "npm run android:assemble:debug",
+    "android:assemble:debug": "cd android && ./gradlew assembleDebug",
+    "android:assemble:release": "cd android && ./gradlew assembleRelease",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "web:build": "expo export --platform web && node scripts/patch-web-seo.mjs",

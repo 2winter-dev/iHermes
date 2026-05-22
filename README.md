@@ -1,8 +1,12 @@
 <h1 align="center">iHermes Chat</h1>
 <p align="center">
-  Mobile-first Hermes client built with Expo.
+  基于 Expo 的 Hermes 移动优先客户端。
   <br/>
-  Connect to your own Hermes agent from Android, iOS, and Web (PWA).
+  支持 Android、iOS、Web(PWA) 直连你自己的 Hermes Agent。
+</p>
+
+<p align="center">
+  <a href="./README_EN.md">English</a> · <b>简体中文</b>
 </p>
 
 <p align="center">
@@ -15,7 +19,6 @@
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/2winter-dev/iHermes?style=flat-square"/></a>
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-blue?style=flat-square"/>
   <img alt="Expo" src="https://img.shields.io/badge/Expo-SDK%2056-4630EB?style=flat-square&logo=expo"/>
-  <img alt="React Native" src="https://img.shields.io/badge/React%20Native-0.85-61DAFB?style=flat-square&logo=react"/>
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-Yes-3178C6?style=flat-square&logo=typescript"/>
 </p>
 
@@ -24,16 +27,16 @@
   <img alt="Forks" src="https://img.shields.io/github/forks/2winter-dev/iHermes?style=social"/>
 </p>
 
-## Quick Access
+## 快速入口
 
-| Entry | Link |
+| 项目 | 地址 |
 | --- | --- |
-| Repository | https://github.com/2winter-dev/iHermes |
-| Web / PWA Preview | https://ihermes.2winter.com |
-| Snack Demo | https://snack.expo.dev/@yfd/ihermes |
+| 仓库 | https://github.com/2winter-dev/iHermes |
+| Web / PWA 预览 | https://ihermes.2winter.com |
+| Snack 演示 | https://snack.expo.dev/@yfd/ihermes |
 | Android APK | https://github.com/2winter-dev/iHermes/releases/tag/beta0.1 |
 
-## Snack Preview
+## Snack 预览
 
 <p align="center">
   <a href="https://snack.expo.dev/@yfd/ihermes">
@@ -41,13 +44,7 @@
   </a>
 </p>
 
-<p align="center">
-  <a href="https://snack.expo.dev/@yfd/ihermes">
-    <img src="previewImages/overview.jpg" alt="snack-preview-cover" width="280"/>
-  </a>
-</p>
-
-## Preview Gallery
+## 截图预览
 
 <table>
   <tr>
@@ -77,65 +74,57 @@
   </tr>
 </table>
 
-## Features
+## 功能特性
 
-### Connection & Instances
-- Add / edit / delete Hermes instances
-- Fast instance switching with auto-select
-- Connection state indicator and manual refresh
-- Local-first credentials and settings persistence
+### 实例与连接
+- 多实例新增 / 编辑 / 删除 / 切换
+- 连接状态检测与手动刷新
+- 本地保存连接信息
 
-### Conversation UX
-- Streaming (SSE) assistant output
-- Thinking skeleton and phase hint
-- Expandable tool-call timeline (order + status)
-- Retry last answer / copy latest answer
-- Message timestamp and long-press copy
+### 对话体验
+- SSE 流式回复
+- 思考骨架屏 + 阶段提示
+- 工具调用步骤列表（顺序 / 成功失败状态）
+- 重试、复制回复、气泡长按复制
 
-### Settings & Help
-- Warm / soft theme toggle
-- Animation switch
-- Hermes version + app version display
-- API key setup notes and FAQ guidance
+### 设置能力
+- 主题切换（暖色 / 浅淡）
+- 动画开关
+- **多语言支持：中文 / English，默认跟随设备语言，其他语言回退英文**
+- 版本信息、帮助与 FAQ
 
-## Tech Stack
-
+## 技术栈
 - Expo + React Native + React Native Web
 - TypeScript
-- `expo-secure-store`, `expo-clipboard`, `@expo/vector-icons`
-- Vercel (web deployment)
+- expo-secure-store / expo-clipboard / @expo/vector-icons
+- Vercel（Web 部署）
 
-## Run Locally
+## 本地运行
 
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- Expo SDK 56 environment
-
-### Install
 ```bash
 npm install
-```
-
-### Start
-```bash
 npm run start
 npm run android
 npm run ios
 npm run web
 ```
 
-### Build Web
+## Android APK 构建
+
 ```bash
-npm run web:build
+# 默认（debug）
+npm run android:assemble
+
+# 显式 debug / release
+npm run android:assemble:debug
+npm run android:assemble:release
 ```
 
-### Deploy Web
-```bash
-npm run web:deploy
-```
+产物路径：
+- debug: `android/app/build/outputs/apk/debug/`
+- release: `android/app/build/outputs/apk/release/`
 
-## Expo Go Preview
+## Expo Go 预览
 
 ```bash
 git clone https://github.com/2winter-dev/iHermes.git
@@ -144,55 +133,30 @@ npm install
 npx expo start --tunnel
 ```
 
-Open Expo Go on your phone and scan the QR code.
+使用手机 Expo Go 扫码即可预览。
 
-## Hermes Connectivity Notes (Web/PWA)
+## Web/PWA 连接 Hermes 注意事项
+- HTTPS 页面不能直接请求 HTTP 接口（Mixed Content）
+- Hermes 端需要正确配置 CORS
 
-Web/PWA requests are restricted by browser security policies.
+推荐：
+- 使用 Cloudflare Tunnel / Tailscale Funnel 暴露 HTTPS 地址
+- 在 Hermes 或反代层配置 CORS 白名单
 
-- HTTPS pages cannot call plain HTTP APIs (mixed content blocked)
-- Hermes endpoint must return proper CORS headers
-
-Recommended setup:
-- Expose Hermes through HTTPS (for example: Cloudflare Tunnel / Tailscale Funnel)
-- Allow your web domain in CORS policy
-
-## Project Structure
-
-```text
-src/
-  api/hermes/        # Types + API client
-  storage/           # Connections / preferences / chat history
-  theme/             # Design tokens
-App.tsx              # Main UI and interaction logic
-previewImages/       # README screenshot resources
-scripts/             # Build helper scripts
-```
-
-## Project Stats
+## 项目统计
 
 <p align="center">
-  <img src="https://github-readme-stats.vercel.app/api/pin/?username=2winter-dev&repo=iHermes&theme=default&hide_border=true" alt="repo-card" />
+  <img alt="last-commit" src="https://img.shields.io/github/last-commit/2winter-dev/iHermes?style=flat-square"/>
+  <img alt="issues" src="https://img.shields.io/github/issues/2winter-dev/iHermes?style=flat-square"/>
+  <img alt="pr" src="https://img.shields.io/github/issues-pr/2winter-dev/iHermes?style=flat-square"/>
+  <img alt="repo-size" src="https://img.shields.io/github/repo-size/2winter-dev/iHermes?style=flat-square"/>
+  <img alt="top-language" src="https://img.shields.io/github/languages/top/2winter-dev/iHermes?style=flat-square"/>
 </p>
 
-<p align="center">
-  <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=2winter-dev&layout=compact&theme=default&hide_border=true" alt="top-langs" />
-</p>
-
-## Roadmap
-
-- [ ] Export / import instance profiles
-- [ ] Stable Android release pipeline
-- [ ] Better model metadata + capability detection
-- [ ] Optional lightweight relay mode
-
-## Contributing
-
-Contributions are welcome. Please read:
+## 参与贡献
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
 - [SECURITY.md](./SECURITY.md)
 
 ## License
-
 MIT License. See [LICENSE](./LICENSE).

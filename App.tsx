@@ -37,6 +37,8 @@ import { borderWidths, radii, ThemeMode, themes } from './src/theme/tokens';
 type TabKey = 'instances' | 'settings';
 type ConnectionState = 'idle' | 'testing' | 'online' | 'offline';
 type ToolStepStatus = 'running' | 'success' | 'failed';
+type SupportedLanguage = 'zh' | 'en';
+type LanguagePreference = 'device' | SupportedLanguage;
 
 type ChatBubble = HermesChatMessage & {
   id: string;
@@ -72,6 +74,223 @@ const WEB_MAX_WIDTH = 520;
 const AUTHOR_XHS_URL = 'https://xhslink.com/m/1pRHxd9V2xH';
 const ANDROID_APK_DOWNLOAD_URL =
   'https://github.com/2winter-dev/iHermes/releases/tag/beta0.1';
+const OPEN_SOURCE_REPO_URL = 'https://github.com/2winter-dev/iHermes';
+const translations = {
+  zh: {
+    notTested: '未测试',
+    unknown: '未知',
+    statusOnline: '在线',
+    statusOffline: '离线',
+    statusTesting: '测试中',
+    statusUnchecked: '未检测',
+    missingFieldsTitle: '缺少字段',
+    missingFieldsConnection: '请填写名称、Base URL 和 API Key。',
+    missingFieldsTest: '请先填写 Base URL 和 API Key。',
+    currentInstance: '当前实例',
+    noInstanceSelectedTitle: '未选择实例',
+    noInstanceSelectedDesc: '请先在“已保存实例”里选择一个实例。',
+    updatedHint: '连接已更新，建议重新测试',
+    savedHint: '连接已保存，建议测试',
+    heroSubtitle: '本地 Hermes 会话助手 · 聚焦对话，随时开聊',
+    savedInstances: '已保存实例',
+    noSavedInstances: '暂无实例，先在下方保存一个。',
+    modelLabel: '模型',
+    edit: '编辑',
+    instanceManagement: '实例管理',
+    expand: '展开',
+    collapse: '收起',
+    namePlaceholder: '名称（例如：本机默认）',
+    urlPlaceholder: 'Base URL（例如：http://192.168.1.8:8642）',
+    apiKeyPlaceholder: 'API Key',
+    modelAutoHint: '模型将于连接成功后自动获取',
+    save: '保存',
+    updateSave: '更新保存',
+    testingLabel: '检测中...',
+    testConnection: '检测连接',
+    delete: '删除',
+    collapsedHint: '已折叠，点击“展开”进行新增或编辑。',
+    settings: '设置功能',
+    theme: '主题',
+    themeWarm: '暖色',
+    themeSoft: '浅淡',
+    language: '语言',
+    langDevice: '跟随设备',
+    langChinese: '中文',
+    langEnglish: 'English',
+    animations: '动画',
+    on: '开',
+    off: '关',
+    versionInfo: '版本信息',
+    hermesVersion: 'Hermes 版本',
+    appVersion: 'App 版本',
+    help: '实验帮助',
+    authorContact: '作者联系',
+    installPwa: '安装到主屏幕（PWA）',
+    installIhermes: '安装 iHermes',
+    iosPwaHint: 'iOS Safari：点击底部“分享”按钮，再点“添加到主屏幕”。',
+    androidPwaHint: 'Android Chrome：右上角菜单中选择“添加到主屏幕”。',
+    howToApiKey: '如何获取 API Key',
+    faq: 'FAQ',
+    apkDownload: 'Android 下载',
+    downloadAndroidApk: '下载 Android APK',
+    tabInstances: '实例',
+    tabSettings: '设置',
+    tabChat: '聊天',
+    chatTitle: '聊天',
+    thinking: '思考中',
+    close: '关闭',
+    toolSteps: '工具调用步骤',
+    stepSuccess: '成功',
+    stepFailed: '失败',
+    stepRunning: '进行中',
+    clear: '清空',
+    retry: '重试',
+    copyReply: '复制回复',
+    currentInstanceLabel: '当前实例',
+    notSelected: '未选择',
+    sendFirst: '发送第一条消息开始会话。',
+    inputMessage: '输入消息',
+    sending: '发送中',
+    send: '发送',
+    userLabel: '你',
+    assistantThinking: 'Hermes 正在思考...',
+    assistantReplying: 'Hermes 正在回复...',
+    callingTool: '正在调用工具',
+    callingToolFallback: '正在调用工具...',
+    emptyResponse: '(空响应)',
+    noCopyContentTitle: '暂无内容',
+    noCopyContentDesc: '还没有可复制的 Hermes 回复。',
+    copiedTitle: '已复制',
+    copiedReplyDesc: '最后一条 Hermes 回复已复制到剪贴板。',
+    copiedBubbleDesc: '气泡内容已复制。',
+    connectSuccess: '连接成功，配置模型',
+    apiModel: 'API模型',
+    connectFailed: '连接失败',
+    requestFailed: '请求失败',
+    retryFailed: '重试失败',
+    apiHelp1: '1. 在 Hermes 节点编辑 `~/.hermes/.env`。',
+    apiHelp2: '2. 写入 `API_SERVER_ENABLED=true`。',
+    apiHelp3: '3. 生成 key（推荐）：`openssl rand -hex 32`。',
+    apiHelp4: '4. 或者手动输入：自己写一串 32 位以上、尽量随机且不易猜到的字符串（字母+数字）。',
+    apiHelp5: '5. 写入 `API_SERVER_KEY=<你的key>`。',
+    apiHelp6: '6. 启动 `hermes gateway`，在实例里填 Base URL + API Key。',
+    faqQ1: 'Q1: Web/PWA 能直连 `192.168.x.x` 吗？',
+    faqA1: 'A1: 通常会被 HTTPS + CORS 限制，推荐先给 Hermes 提供 HTTPS 入口。',
+    faqQ2: 'Q2: 怎么把本地 Hermes 暴露成 HTTPS？',
+    faqA2: 'A2: 推荐 Cloudflare Tunnel 或 Tailscale Funnel，再在实例里填写对应 https 地址。',
+    faqQ3: 'Q3: 移动端建议用哪个？',
+    faqA3: 'A3: 建议优先使用 Android 版本，连接本地网关更稳定。',
+    openSource: '开源项目',
+    viewRepository: '查看 GitHub 仓库',
+  },
+  en: {
+    notTested: 'Not tested',
+    unknown: 'Unknown',
+    statusOnline: 'Online',
+    statusOffline: 'Offline',
+    statusTesting: 'Testing',
+    statusUnchecked: 'Unchecked',
+    missingFieldsTitle: 'Missing fields',
+    missingFieldsConnection: 'Please fill in Name, Base URL, and API Key.',
+    missingFieldsTest: 'Please enter Base URL and API Key first.',
+    currentInstance: 'Current instance',
+    noInstanceSelectedTitle: 'No instance selected',
+    noInstanceSelectedDesc: 'Please select one from Saved Instances first.',
+    updatedHint: 'Connection updated. Please test again.',
+    savedHint: 'Connection saved. Please run a connection test.',
+    heroSubtitle: 'Local Hermes chat assistant · chat-first workflow',
+    savedInstances: 'Saved Instances',
+    noSavedInstances: 'No saved instance yet. Create one below.',
+    modelLabel: 'Model',
+    edit: 'Edit',
+    instanceManagement: 'Instance Management',
+    expand: 'Expand',
+    collapse: 'Collapse',
+    namePlaceholder: 'Name (for example: Local Default)',
+    urlPlaceholder: 'Base URL (for example: http://192.168.1.8:8642)',
+    apiKeyPlaceholder: 'API Key',
+    modelAutoHint: 'Model is auto-detected after successful connection',
+    save: 'Save',
+    updateSave: 'Update',
+    testingLabel: 'Testing...',
+    testConnection: 'Test Connection',
+    delete: 'Delete',
+    collapsedHint: 'Collapsed. Tap "Expand" to add or edit.',
+    settings: 'Settings',
+    theme: 'Theme',
+    themeWarm: 'Warm',
+    themeSoft: 'Soft',
+    language: 'Language',
+    langDevice: 'Device',
+    langChinese: 'Chinese',
+    langEnglish: 'English',
+    animations: 'Animations',
+    on: 'On',
+    off: 'Off',
+    versionInfo: 'Version',
+    hermesVersion: 'Hermes Version',
+    appVersion: 'App Version',
+    help: 'Help',
+    authorContact: 'Author',
+    installPwa: 'Install to Home Screen (PWA)',
+    installIhermes: 'Install iHermes',
+    iosPwaHint: 'iOS Safari: tap Share, then Add to Home Screen.',
+    androidPwaHint: 'Android Chrome: open menu, then Add to Home screen.',
+    howToApiKey: 'How to get API Key',
+    faq: 'FAQ',
+    apkDownload: 'Android Download',
+    downloadAndroidApk: 'Download Android APK',
+    tabInstances: 'Instances',
+    tabSettings: 'Settings',
+    tabChat: 'Chat',
+    chatTitle: 'Chat',
+    thinking: 'Thinking',
+    close: 'Close',
+    toolSteps: 'Tool Steps',
+    stepSuccess: 'Success',
+    stepFailed: 'Failed',
+    stepRunning: 'Running',
+    clear: 'Clear',
+    retry: 'Retry',
+    copyReply: 'Copy Reply',
+    currentInstanceLabel: 'Current',
+    notSelected: 'Not selected',
+    sendFirst: 'Send your first message to start.',
+    inputMessage: 'Type a message',
+    sending: 'Sending',
+    send: 'Send',
+    userLabel: 'You',
+    assistantThinking: 'Hermes is thinking...',
+    assistantReplying: 'Hermes is replying...',
+    callingTool: 'Calling tool',
+    callingToolFallback: 'Calling tool...',
+    emptyResponse: '(empty response)',
+    noCopyContentTitle: 'No content',
+    noCopyContentDesc: 'No Hermes reply available to copy.',
+    copiedTitle: 'Copied',
+    copiedReplyDesc: 'Latest Hermes reply copied.',
+    copiedBubbleDesc: 'Message copied.',
+    connectSuccess: 'connected, selected model',
+    apiModel: 'API model',
+    connectFailed: 'connection failed',
+    requestFailed: 'Request failed',
+    retryFailed: 'Retry failed',
+    apiHelp1: '1. Edit `~/.hermes/.env` on your Hermes host.',
+    apiHelp2: '2. Set `API_SERVER_ENABLED=true`.',
+    apiHelp3: '3. Generate a key (recommended): `openssl rand -hex 32`.',
+    apiHelp4: '4. Or manually use a random 32+ character string (letters + numbers).',
+    apiHelp5: '5. Set `API_SERVER_KEY=<your_key>`.',
+    apiHelp6: '6. Start `hermes gateway`, then fill Base URL + API Key in iHermes.',
+    faqQ1: 'Q1: Can Web/PWA connect directly to `192.168.x.x`?',
+    faqA1: 'A1: Usually blocked by HTTPS + CORS policy. Prefer exposing Hermes over HTTPS first.',
+    faqQ2: 'Q2: How can I expose local Hermes via HTTPS?',
+    faqA2: 'A2: Use Cloudflare Tunnel or Tailscale Funnel, then fill that HTTPS URL.',
+    faqQ3: 'Q3: Which mobile client is recommended?',
+    faqA3: 'A3: Android app is recommended for more stable local gateway connectivity.',
+    openSource: 'Open Source',
+    viewRepository: 'View GitHub Repository',
+  },
+} as const;
 const SEO_TITLE = 'iHermes App - Hermes 手机版（iOS / Android）';
 const SEO_DESCRIPTION =
   'iHermes 是 Hermes 手机版客户端，支持 iOS、Android 与 Web App，多实例连接、会话对话、工具调用可视化。';
@@ -86,6 +305,9 @@ export default function App() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultPreferences.themeMode);
   const [animationsEnabled, setAnimationsEnabled] = useState(defaultPreferences.animationsEnabled);
   const [defaultModel, setDefaultModel] = useState(defaultPreferences.defaultModel);
+  const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(
+    defaultPreferences.languagePreference,
+  );
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   const theme = themes[themeMode];
@@ -93,7 +315,7 @@ export default function App() {
   const [connections, setConnections] = useState<HermesConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<ConnectionFormState>(emptyForm(defaultPreferences.defaultModel));
-  const [testResult, setTestResult] = useState<string>('未测试');
+  const [testResult, setTestResult] = useState<string>(translations.zh.notTested);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [isTesting, setIsTesting] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -103,7 +325,7 @@ export default function App() {
   const [chatHistoryMap, setChatHistoryMap] = useState<ChatHistoryMap>({});
   const [toolSteps, setToolSteps] = useState<ToolStep[]>([]);
   const [toolStepsExpanded, setToolStepsExpanded] = useState(true);
-  const [hermesVersion, setHermesVersion] = useState<string>('未知');
+  const [hermesVersion, setHermesVersion] = useState<string>(translations.zh.unknown);
   const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
   const [showInstallHint, setShowInstallHint] = useState(false);
 
@@ -114,6 +336,22 @@ export default function App() {
     () => connections.find((item) => item.id === selectedId) ?? null,
     [connections, selectedId],
   );
+  const deviceLocale = useMemo(() => {
+    const locale =
+      Intl.DateTimeFormat().resolvedOptions().locale ||
+      (Platform.OS === 'web' && typeof navigator !== 'undefined' ? navigator.language : '');
+    return locale.toLowerCase();
+  }, []);
+  const resolvedLanguage: SupportedLanguage = useMemo(() => {
+    if (languagePreference === 'zh' || languagePreference === 'en') {
+      return languagePreference;
+    }
+    if (deviceLocale.startsWith('zh')) {
+      return 'zh';
+    }
+    return 'en';
+  }, [deviceLocale, languagePreference]);
+  const t = translations[resolvedLanguage];
 
   const lastAssistantText = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -169,6 +407,7 @@ export default function App() {
       setThemeMode(savedPrefs.themeMode);
       setAnimationsEnabled(savedPrefs.animationsEnabled);
       setDefaultModel(savedPrefs.defaultModel);
+      setLanguagePreference(savedPrefs.languagePreference);
       setForm((prev) => (prev.id ? prev : { ...prev, model: savedPrefs.defaultModel }));
       setPrefsLoaded(true);
     })();
@@ -178,9 +417,9 @@ export default function App() {
     if (!prefsLoaded) {
       return;
     }
-    const next: AppPreferences = { themeMode, animationsEnabled, defaultModel };
+    const next: AppPreferences = { themeMode, animationsEnabled, defaultModel, languagePreference };
     void savePreferences(next);
-  }, [animationsEnabled, defaultModel, prefsLoaded, themeMode]);
+  }, [animationsEnabled, defaultModel, languagePreference, prefsLoaded, themeMode]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -198,6 +437,15 @@ export default function App() {
       return next;
     });
   }, [messages, selectedId]);
+
+  useEffect(() => {
+    if (testResult === translations.zh.notTested || testResult === translations.en.notTested) {
+      setTestResult(t.notTested);
+    }
+    if (hermesVersion === translations.zh.unknown || hermesVersion === translations.en.unknown) {
+      setHermesVersion(t.unknown);
+    }
+  }, [hermesVersion, t.notTested, t.unknown, testResult]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined' || typeof window === 'undefined') {
@@ -417,7 +665,7 @@ export default function App() {
     const model = form.model.trim() || defaultModel;
 
     if (!name || !baseUrl || !apiKey) {
-      Alert.alert('缺少字段', '请填写名称、Base URL 和 API Key。');
+      Alert.alert(t.missingFieldsTitle, t.missingFieldsConnection);
       return;
     }
 
@@ -431,7 +679,7 @@ export default function App() {
       await persist(updated);
       setSelectedId(form.id);
       setConnectionState('idle');
-      setTestResult('连接已更新，建议重新测试');
+      setTestResult(t.updatedHint);
       return;
     }
 
@@ -450,7 +698,7 @@ export default function App() {
     setSelectedId(created.id);
     setForm((prev) => ({ ...prev, id: created.id }));
     setConnectionState('idle');
-    setTestResult('连接已保存，建议测试');
+    setTestResult(t.savedHint);
   }
 
   async function handleDeleteConnection() {
@@ -476,21 +724,21 @@ export default function App() {
     setInstanceFormCollapsed(next.length > 0);
     setMessages(fallback ? ((chatHistoryMap[fallback.id] as ChatBubble[] | undefined) ?? []) : []);
     setConnectionState('idle');
-    setTestResult('未测试');
+    setTestResult(t.notTested);
   }
 
   async function handleTestConnection() {
     const baseUrl = HermesApiClient.normalizeBaseUrl(form.baseUrl);
     const apiKey = form.apiKey.trim();
     if (!baseUrl || !apiKey) {
-      Alert.alert('缺少字段', '请先填写 Base URL 和 API Key。');
+      Alert.alert(t.missingFieldsTitle, t.missingFieldsTest);
       return;
     }
     await connectAndSync({
       targetId: form.id,
       baseUrl,
       apiKey,
-      name: form.name || '当前实例',
+      name: form.name || t.currentInstance,
       updateFormModel: true,
     });
   }
@@ -548,11 +796,11 @@ export default function App() {
 
       setConnectionState('online');
       setTestResult(
-        `${name} 连接成功，配置模型: ${resolvedModel}${apiModelName ? `，API模型: ${apiModelName}` : ''}`,
+        `${name} ${t.connectSuccess}: ${resolvedModel}${apiModelName ? `, ${t.apiModel}: ${apiModelName}` : ''}`,
       );
     } catch (error) {
       setConnectionState('offline');
-      setTestResult(`${name} 连接失败: ${toErrorMessage(error)}`);
+      setTestResult(`${name} ${t.connectFailed}: ${toErrorMessage(error)}`);
     } finally {
       setIsTesting(false);
     }
@@ -578,7 +826,7 @@ export default function App() {
       (form.baseUrl && form.apiKey
         ? ({
             id: form.id || 'temp',
-            name: form.name || '当前实例',
+            name: form.name || t.currentInstance,
             baseUrl: form.baseUrl,
             apiKey: form.apiKey,
             model: form.model,
@@ -587,7 +835,7 @@ export default function App() {
           } as HermesConnection)
         : null);
     if (!current) {
-      Alert.alert('未选择实例', '请先在“已保存实例”里选择一个实例。');
+      Alert.alert(t.noInstanceSelectedTitle, t.noInstanceSelectedDesc);
       return;
     }
     await connectAndSync({
@@ -612,7 +860,7 @@ export default function App() {
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, placeholder]);
-    setChatPhaseText('Hermes 正在思考...');
+    setChatPhaseText(t.assistantThinking);
     setToolSteps([]);
     setToolStepsExpanded(true);
 
@@ -624,20 +872,20 @@ export default function App() {
         messages: history.map((msg) => ({ role: msg.role, content: msg.content })),
         onDelta: (delta) => {
           if (!delta) return;
-          setChatPhaseText('Hermes 正在回复...');
+          setChatPhaseText(t.assistantReplying);
           setMessages((prev) =>
             prev.map((msg) => (msg.id === placeholderId ? { ...msg, content: msg.content + delta } : msg)),
           );
         },
         onToolEvent: (toolName) => {
           pushToolStep(toolName);
-          setChatPhaseText(toolName ? `正在调用工具 ${toolName}` : '正在调用工具...');
+          setChatPhaseText(toolName ? `${t.callingTool} ${toolName}` : t.callingToolFallback);
         },
       });
 
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === placeholderId && !msg.content.trim() ? { ...msg, content: '(空响应)' } : msg,
+          msg.id === placeholderId && !msg.content.trim() ? { ...msg, content: t.emptyResponse } : msg,
         ),
       );
       completeRunningToolSteps(true);
@@ -649,7 +897,7 @@ export default function App() {
         stream: false,
         messages: history.map((msg) => ({ role: msg.role, content: msg.content })),
       });
-      const text = response.choices?.[0]?.message?.content ?? '(空响应)';
+      const text = response.choices?.[0]?.message?.content ?? t.emptyResponse;
       setMessages((prev) => prev.map((msg) => (msg.id === placeholderId ? { ...msg, content: text } : msg)));
       completeRunningToolSteps(true);
       setChatPhaseText('');
@@ -681,7 +929,7 @@ export default function App() {
       const errorMessage: ChatBubble = {
         id: `${Date.now()}-e`,
         role: 'assistant',
-        content: `请求失败: ${toErrorMessage(error)}`,
+        content: `${t.requestFailed}: ${toErrorMessage(error)}`,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -706,7 +954,7 @@ export default function App() {
       const errorMessage: ChatBubble = {
         id: `${Date.now()}-e`,
         role: 'assistant',
-        content: `重试失败: ${toErrorMessage(error)}`,
+        content: `${t.retryFailed}: ${toErrorMessage(error)}`,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -719,11 +967,11 @@ export default function App() {
 
   async function handleCopyLastReply() {
     if (!lastAssistantText) {
-      Alert.alert('暂无内容', '还没有可复制的 Hermes 回复。');
+      Alert.alert(t.noCopyContentTitle, t.noCopyContentDesc);
       return;
     }
     await Clipboard.setStringAsync(lastAssistantText);
-    Alert.alert('已复制', '最后一条 Hermes 回复已复制到剪贴板。');
+    Alert.alert(t.copiedTitle, t.copiedReplyDesc);
   }
 
   function handleClearChat() {
@@ -732,7 +980,7 @@ export default function App() {
 
   async function copyBubbleContent(content: string) {
     await Clipboard.setStringAsync(content);
-    Alert.alert('已复制', '气泡内容已复制。');
+    Alert.alert(t.copiedTitle, t.copiedBubbleDesc);
   }
 
   function pushToolStep(name?: string) {
@@ -812,12 +1060,12 @@ export default function App() {
 
   const statusLabel =
     connectionState === 'online'
-      ? '在线'
+      ? t.statusOnline
       : connectionState === 'offline'
-      ? '离线'
+      ? t.statusOffline
       : connectionState === 'testing'
-      ? '测试中'
-      : '未检测';
+      ? t.statusTesting
+      : t.statusUnchecked;
   const chatEnabled = connectionState === 'online' && !!selectedConnection;
   const showFloatingBar = !(Platform.OS === 'web' && showChatSheet);
 
@@ -867,8 +1115,8 @@ export default function App() {
                   style={[styles.logo, { borderColor: theme.border }]}
                 />
                 <View style={styles.heroTextWrap}>
-                  <Text style={[styles.title, { color: theme.inkStrong }]}>iHermes</Text>
-                  <Text style={[styles.subtitle, { color: theme.inkSoft }]}>本地 Hermes 会话助手 · 聚焦对话，随时开聊</Text>
+                  <Text style={[styles.title, { color: theme.inkStrong }]}>iHermes Chat</Text>
+                  <Text style={[styles.subtitle, { color: theme.inkSoft }]}>{t.heroSubtitle}</Text>
                 </View>
                 <Pressable style={styles.heroStatusWrap} onPress={() => void handleRefreshSelectedConnection()}>
                   <View style={[styles.statusDot, { backgroundColor: statusColor, borderColor: theme.border }]} />
@@ -883,9 +1131,9 @@ export default function App() {
                   <View
                     style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
                   >
-                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>已保存实例</Text>
+                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.savedInstances}</Text>
                     {connections.length === 0 ? (
-                      <Text style={[styles.hint, { color: theme.inkSoft }]}>暂无实例，先在下方保存一个。</Text>
+                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.noSavedInstances}</Text>
                     ) : (
                       <FlatList
                         data={connections}
@@ -906,7 +1154,7 @@ export default function App() {
                               <Pressable onPress={() => void handleSelectConnection(item)} style={styles.connectionMainArea}>
                                 <Text style={[styles.connectionName, { color: theme.ink }]}>{item.name}</Text>
                                 <Text style={[styles.connectionMeta, { color: theme.inkSoft }]}>{item.baseUrl}</Text>
-                                <Text style={[styles.connectionMeta, { color: theme.inkSoft }]}>模型：{item.model || defaultModel}</Text>
+                                <Text style={[styles.connectionMeta, { color: theme.inkSoft }]}>{t.modelLabel}: {item.model || defaultModel}</Text>
                               </Pressable>
                               <Pressable
                                 onPress={() => {
@@ -916,7 +1164,7 @@ export default function App() {
                                 }}
                                 style={styles.connectionEditButton}
                               >
-                                <Text style={[styles.connectionEditText, { color: theme.inkStrong }]}>编辑</Text>
+                                <Text style={[styles.connectionEditText, { color: theme.inkStrong }]}>{t.edit}</Text>
                               </Pressable>
                             </View>
                           );
@@ -931,11 +1179,11 @@ export default function App() {
                     style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
                   >
                     <View style={styles.cardHeaderRow}>
-                      <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>实例管理</Text>
+                      <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.instanceManagement}</Text>
                       <View style={styles.headerActionsRow}>
                         <Pressable onPress={() => setInstanceFormCollapsed((v) => !v)}>
                           <Text style={[styles.foldToggleText, { color: theme.inkStrong }]}>
-                            {instanceFormCollapsed ? '展开' : '收起'}
+                            {instanceFormCollapsed ? t.expand : t.collapse}
                           </Text>
                         </Pressable>
                       </View>
@@ -951,7 +1199,7 @@ export default function App() {
                               color: theme.ink,
                             },
                           ]}
-                          placeholder="名称（例如：本机默认）"
+                          placeholder={t.namePlaceholder}
                           placeholderTextColor={theme.inkSoft}
                           value={form.name}
                           onChangeText={(value) => patchForm('name', value)}
@@ -965,7 +1213,7 @@ export default function App() {
                               color: theme.ink,
                             },
                           ]}
-                          placeholder="Base URL（例如：http://192.168.1.8:8642）"
+                          placeholder={t.urlPlaceholder}
                           placeholderTextColor={theme.inkSoft}
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -981,7 +1229,7 @@ export default function App() {
                               color: theme.ink,
                             },
                           ]}
-                          placeholder="API Key"
+                          placeholder={t.apiKeyPlaceholder}
                           placeholderTextColor={theme.inkSoft}
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -990,19 +1238,19 @@ export default function App() {
                           onChangeText={(value) => patchForm('apiKey', value)}
                         />
                         <Text style={[styles.hint, { color: theme.inkSoft }]}>
-                          模型将于连接成功后自动获取：{form.model || defaultModel}
+                          {t.modelAutoHint}: {form.model || defaultModel}
                         </Text>
 
                         <View style={styles.row}>
                           <ActionButton
-                            label={form.id ? '更新保存' : '保存'}
+                            label={form.id ? t.updateSave : t.save}
                             onPress={handleSaveConnection}
                             color={theme.buttonPrimary}
                             borderColor={theme.border}
                             textColor={theme.ink}
                           />
                           <ActionButton
-                            label={isTesting ? '检测中...' : '检测连接'}
+                            label={isTesting ? t.testingLabel : t.testConnection}
                             disabled={isTesting}
                             onPress={handleTestConnection}
                             color={theme.buttonPrimary}
@@ -1010,7 +1258,7 @@ export default function App() {
                             textColor={theme.ink}
                           />
                           <ActionButton
-                            label="删除"
+                            label={t.delete}
                             disabled={!form.id}
                             onPress={handleDeleteConnection}
                             color={theme.buttonDanger}
@@ -1021,7 +1269,7 @@ export default function App() {
                         <Text style={[styles.hint, { color: theme.inkSoft }]}>{testResult}</Text>
                       </>
                     ) : (
-                      <Text style={[styles.hint, { color: theme.inkSoft }]}>已折叠，点击“展开”进行新增或编辑。</Text>
+                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.collapsedHint}</Text>
                     )}
                   </View>
                 </AnimatedCard>
@@ -1030,19 +1278,19 @@ export default function App() {
               <>
                 <AnimatedCard delay={80} enabled={animationsEnabled}>
                   <View style={[styles.card, { backgroundColor: '#ffffff', borderColor: theme.border }]}> 
-                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>设置功能</Text>
+                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.settings}</Text>
 
-                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>主题</Text>
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.theme}</Text>
                     <View style={styles.row}>
                       <ActionButton
-                        label="暖色"
+                        label={t.themeWarm}
                         onPress={() => setThemeMode('warm')}
                         color={themeMode === 'warm' ? theme.buttonPrimary : '#f1f5f9'}
                         borderColor={theme.border}
                         textColor={theme.ink}
                       />
                       <ActionButton
-                        label="浅淡"
+                        label={t.themeSoft}
                         onPress={() => setThemeMode('soft')}
                         color={themeMode === 'soft' ? theme.buttonPrimary : '#f1f5f9'}
                         borderColor={theme.border}
@@ -1050,10 +1298,35 @@ export default function App() {
                       />
                     </View>
 
-                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>动画</Text>
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.language}</Text>
                     <View style={styles.row}>
                       <ActionButton
-                        label={animationsEnabled ? '开' : '关'}
+                        label={t.langDevice}
+                        onPress={() => setLanguagePreference('device')}
+                        color={languagePreference === 'device' ? theme.buttonPrimary : '#f1f5f9'}
+                        borderColor={theme.border}
+                        textColor={theme.ink}
+                      />
+                      <ActionButton
+                        label={t.langChinese}
+                        onPress={() => setLanguagePreference('zh')}
+                        color={languagePreference === 'zh' ? theme.buttonPrimary : '#f1f5f9'}
+                        borderColor={theme.border}
+                        textColor={theme.ink}
+                      />
+                      <ActionButton
+                        label={t.langEnglish}
+                        onPress={() => setLanguagePreference('en')}
+                        color={languagePreference === 'en' ? theme.buttonPrimary : '#f1f5f9'}
+                        borderColor={theme.border}
+                        textColor={theme.ink}
+                      />
+                    </View>
+
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.animations}</Text>
+                    <View style={styles.row}>
+                      <ActionButton
+                        label={animationsEnabled ? t.on : t.off}
                         onPress={() => setAnimationsEnabled((v) => !v)}
                         color={theme.buttonPrimary}
                         borderColor={theme.border}
@@ -1066,18 +1339,18 @@ export default function App() {
 
                 <AnimatedCard delay={120} enabled={animationsEnabled}>
                   <View style={[styles.card, { backgroundColor: '#ffffff', borderColor: theme.border }]}> 
-                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>版本信息</Text>
+                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.versionInfo}</Text>
                     <View style={styles.versionRow}>
-                      <Text style={[styles.hint, { color: theme.inkSoft }]}>Hermes 版本：{hermesVersion}</Text>
-                      <Text style={[styles.hint, { color: theme.inkSoft }]}>App 版本：{APP_VERSION}</Text>
+                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.hermesVersion}: {hermesVersion}</Text>
+                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.appVersion}: {APP_VERSION}</Text>
                     </View>
                   </View>
                 </AnimatedCard>
 
                 <AnimatedCard delay={160} enabled={animationsEnabled}>
                   <View style={[styles.card, { backgroundColor: '#ffffff', borderColor: theme.border }]}>
-                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>实验帮助</Text>
-                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>作者联系</Text>
+                    <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.help}</Text>
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.authorContact}</Text>
                     <Pressable
                       style={[
                         styles.contactLinkButton,
@@ -1085,15 +1358,15 @@ export default function App() {
                       ]}
                       onPress={() => void Linking.openURL(AUTHOR_XHS_URL)}
                     >
-                      <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>小红书：2winter</Text>
+                      <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>Xiaohongshu: 2winter</Text>
                     </Pressable>
                     {Platform.OS === 'web' && showInstallHint ? (
                       <>
-                        <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>安装到主屏幕（PWA）</Text>
+                        <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.installPwa}</Text>
                         {installPromptEvent ? (
                           <View style={styles.row}>
                             <ActionButton
-                              label="安装 iHermes"
+                              label={t.installIhermes}
                               onPress={() => void handleInstallPwa()}
                               color={theme.buttonPrimary}
                               borderColor={theme.border}
@@ -1103,36 +1376,46 @@ export default function App() {
                         ) : (
                           <View style={styles.helpBox}>
                             <Text style={[styles.helpText, { color: theme.inkSoft }]}>
-                              iOS Safari：点击底部“分享”按钮，再点“添加到主屏幕”。
+                              {t.iosPwaHint}
                             </Text>
                             <Text style={[styles.helpText, { color: theme.inkSoft }]}>
-                              Android Chrome：右上角菜单中选择“添加到主屏幕”。
+                              {t.androidPwaHint}
                             </Text>
                           </View>
                         )}
                       </>
                     ) : null}
-                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>如何获取 API Key</Text>
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.howToApiKey}</Text>
                     <View style={styles.helpBox}>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>1. 在 Hermes 节点编辑 `~/.hermes/.env`。</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>2. 写入 `API_SERVER_ENABLED=true`。</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>3. 生成 key（推荐）：`openssl rand -hex 32`。</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>4. 或者手动输入：自己写一串 32 位以上、尽量随机且不易猜到的字符串（字母+数字）。</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>5. 写入 `API_SERVER_KEY=&lt;你的key&gt;`。</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>6. 启动 `hermes gateway`，在实例里填 Base URL + API Key。</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.apiHelp1}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.apiHelp2}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.apiHelp3}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.apiHelp4}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.apiHelp5}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.apiHelp6}</Text>
                     </View>
-                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>FAQ</Text>
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.faq}</Text>
                     <View style={styles.helpBox}>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>Q1: Web/PWA 能直连 `192.168.x.x` 吗？</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>A1: 通常会被 HTTPS + CORS 限制，推荐先给 Hermes 提供 HTTPS 入口。</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>Q2: 怎么把本地 Hermes 暴露成 HTTPS？</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>A2: 推荐 Cloudflare Tunnel 或 Tailscale Funnel，再在实例里填写对应 https 地址。</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>Q3: 移动端建议用哪个？</Text>
-                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>A3: 建议优先使用 Android 版本，连接本地网关更稳定。</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqQ1}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqA1}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqQ2}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqA2}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqQ3}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqA3}</Text>
                     </View>
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.openSource}</Text>
+                    <Pressable
+                      style={[
+                        styles.contactLinkButton,
+                        { borderColor: theme.borderSoft, backgroundColor: theme.inputBg },
+                      ]}
+                      onPress={() => void Linking.openURL(OPEN_SOURCE_REPO_URL)}
+                    >
+                      <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>{t.viewRepository}</Text>
+                    </Pressable>
                     {Platform.OS === 'web' ? (
                       <>
-                        <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>Android 下载</Text>
+                        <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.apkDownload}</Text>
                         <Pressable
                           style={[
                             styles.contactLinkButton,
@@ -1140,7 +1423,7 @@ export default function App() {
                           ]}
                           onPress={() => void Linking.openURL(ANDROID_APK_DOWNLOAD_URL)}
                         >
-                          <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>下载 Android APK</Text>
+                          <Text style={[styles.contactLinkText, { color: theme.inkStrong }]}>{t.downloadAndroidApk}</Text>
                         </Pressable>
                       </>
                     ) : null}
@@ -1156,7 +1439,7 @@ export default function App() {
             <View style={[styles.floatingBar, { backgroundColor: theme.card, borderColor: theme.border }]}> 
               <TabButton
                 active={activeTab === 'instances'}
-                label="实例"
+                label={t.tabInstances}
                 icon="server-outline"
                 onPress={() => setActiveTab('instances')}
                 color={theme.inkStrong}
@@ -1165,7 +1448,7 @@ export default function App() {
               <View style={styles.chatButtonPlaceholder} />
               <TabButton
                 active={activeTab === 'settings'}
-                label="设置"
+                label={t.tabSettings}
                 icon="settings-outline"
                 onPress={() => setActiveTab('settings')}
                 color={theme.inkStrong}
@@ -1190,7 +1473,7 @@ export default function App() {
                 size={18}
                 color={chatEnabled ? theme.ink : theme.inkSoft}
               />
-              <Text style={[styles.chatFabText, { color: chatEnabled ? theme.ink : theme.inkSoft }]}>聊天</Text>
+              <Text style={[styles.chatFabText, { color: chatEnabled ? theme.ink : theme.inkSoft }]}>{t.tabChat}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -1209,16 +1492,16 @@ export default function App() {
           <View style={[styles.chatSheetAvoid, Platform.OS === 'web' ? styles.chatSheetAvoidWeb : null]}>
             <View style={[styles.chatSheet, { backgroundColor: theme.card, borderColor: theme.border }]}> 
               <View style={styles.chatSheetHeader}>
-                <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>聊天</Text>
+                <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.chatTitle}</Text>
                 <View style={styles.chatHeaderRight}>
                   {isSending ? (
                     <View style={styles.thinkingChip}>
                       <ActivityIndicator size="small" color={theme.inkStrong} />
-                      <Text style={[styles.thinkingChipText, { color: theme.inkStrong }]}>思考中</Text>
+                      <Text style={[styles.thinkingChipText, { color: theme.inkStrong }]}>{t.thinking}</Text>
                     </View>
                   ) : null}
                   <Pressable onPress={() => setShowChatSheet(false)}>
-                    <Text style={[styles.toolButtonText, { color: theme.inkStrong }]}>关闭</Text>
+                    <Text style={[styles.toolButtonText, { color: theme.inkStrong }]}>{t.close}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -1232,10 +1515,10 @@ export default function App() {
                     onPress={() => setToolStepsExpanded((v) => !v)}
                   >
                     <Text style={[styles.stepsTitle, { color: theme.inkStrong }]}>
-                      工具调用步骤 ({toolSteps.length})
+                      {t.toolSteps} ({toolSteps.length})
                     </Text>
                     <Text style={[styles.stepsToggle, { color: theme.inkSoft }]}>
-                      {toolStepsExpanded ? '收起' : '展开'}
+                      {toolStepsExpanded ? t.collapse : t.expand}
                     </Text>
                   </Pressable>
                   {toolStepsExpanded ? (
@@ -1258,10 +1541,10 @@ export default function App() {
                             ]}
                           >
                             {step.status === 'success'
-                              ? '成功'
+                              ? t.stepSuccess
                               : step.status === 'failed'
-                              ? '失败'
-                              : '进行中'}
+                              ? t.stepFailed
+                              : t.stepRunning}
                           </Text>
                         </View>
                       ))}
@@ -1271,32 +1554,32 @@ export default function App() {
               ) : null}
               <View style={styles.chatToolsRow}>
                 <ToolTextButton
-                  label="清空"
+                  label={t.clear}
                   disabled={messages.length === 0}
                   onPress={handleClearChat}
                   color={theme.inkStrong}
                 />
                 <ToolTextButton
-                  label="重试"
+                  label={t.retry}
                   disabled={!canRetry}
                   onPress={handleRetryLast}
                   color={theme.inkStrong}
                 />
                 <ToolTextButton
-                  label="复制回复"
+                  label={t.copyReply}
                   disabled={!lastAssistantText}
                   onPress={handleCopyLastReply}
                   color={theme.inkStrong}
                 />
               </View>
-              <Text style={[styles.hint, { color: theme.inkSoft }]}>当前实例: {selectedConnection ? selectedConnection.name : '未选择'}</Text>
+              <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.currentInstanceLabel}: {selectedConnection ? selectedConnection.name : t.notSelected}</Text>
 
               <ScrollView
                 style={[styles.chatBox, { borderColor: theme.borderSoft }]}
                 contentContainerStyle={styles.chatBoxContent}
               >
                 {messages.length === 0 ? (
-                  <Text style={[styles.hint, { color: theme.inkSoft }]}>发送第一条消息开始会话。</Text>
+                  <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.sendFirst}</Text>
                 ) : (
                   messages.map((message, index) => (
                     <AnimatedMessageBubble
@@ -1310,6 +1593,9 @@ export default function App() {
                       assistantBubble={theme.assistantBubble}
                       inkColor={theme.ink}
                       softInkColor={theme.inkSoft}
+                      userLabel={t.userLabel}
+                      assistantLabel="Hermes"
+                      thinkingText={t.assistantThinking}
                     />
                   ))
                 )}
@@ -1326,14 +1612,14 @@ export default function App() {
                       color: theme.ink,
                     },
                   ]}
-                  placeholder="输入消息"
+                  placeholder={t.inputMessage}
                   placeholderTextColor={theme.inkSoft}
                   multiline={false}
                   value={chatInput}
                   onChangeText={setChatInput}
                 />
                 <ActionButton
-                  label={isSending ? '发送中' : '发送'}
+                  label={isSending ? t.sending : t.send}
                   disabled={!selectedConnection || isSending}
                   onPress={handleSendMessage}
                   color={theme.buttonPrimary}
@@ -1384,7 +1670,7 @@ async function streamChatCompletion({
   }
 
   if (!response.body || typeof response.body.getReader !== 'function') {
-    throw new Error('当前环境不支持流式读取。');
+    throw new Error('Streaming is not supported in this runtime.');
   }
 
   const reader = response.body.getReader();
@@ -1494,6 +1780,9 @@ function AnimatedMessageBubble({
   assistantBubble,
   inkColor,
   softInkColor,
+  userLabel,
+  assistantLabel,
+  thinkingText,
 }: {
   message: ChatBubble;
   index: number;
@@ -1504,6 +1793,9 @@ function AnimatedMessageBubble({
   assistantBubble: string;
   inkColor: string;
   softInkColor: string;
+  userLabel: string;
+  assistantLabel: string;
+  thinkingText: string;
 }) {
   const fade = useRef(new Animated.Value(enabled ? 0 : 1)).current;
   const slide = useRef(new Animated.Value(enabled ? 10 : 0)).current;
@@ -1549,11 +1841,11 @@ function AnimatedMessageBubble({
           ]}
         >
           <View style={styles.bubbleHeader}>
-            <Text style={[styles.bubbleRole, { color: softInkColor }]}>{message.role === 'user' ? '你' : 'Hermes'}</Text>
+            <Text style={[styles.bubbleRole, { color: softInkColor }]}>{message.role === 'user' ? userLabel : assistantLabel}</Text>
             <Text style={[styles.bubbleTime, { color: softInkColor }]}>{formatTime(message.timestamp)}</Text>
           </View>
           {message.role === 'assistant' && message.content.trim() === '' ? (
-            <SkeletonThinking inkColor={inkColor} />
+            <SkeletonThinking inkColor={inkColor} text={thinkingText} />
           ) : (
             <Text style={[styles.bubbleText, { color: inkColor }]}>{message.content}</Text>
           )}
@@ -1563,7 +1855,7 @@ function AnimatedMessageBubble({
   );
 }
 
-function SkeletonThinking({ inkColor }: { inkColor: string }) {
+function SkeletonThinking({ inkColor, text }: { inkColor: string; text: string }) {
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -1588,7 +1880,7 @@ function SkeletonThinking({ inkColor }: { inkColor: string }) {
     <View style={styles.skeletonWrap}>
       <View style={styles.thinkingRow}>
         <ActivityIndicator size="small" color={inkColor} />
-        <Text style={[styles.thinkingText, { color: inkColor }]}>Hermes 正在思考...</Text>
+        <Text style={[styles.thinkingText, { color: inkColor }]}>{text}</Text>
       </View>
       <Animated.View style={[styles.skeletonLineLg, { opacity }]} />
       <Animated.View style={[styles.skeletonLineMd, { opacity }]} />

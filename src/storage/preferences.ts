@@ -7,12 +7,14 @@ export interface AppPreferences {
   themeMode: ThemeMode;
   animationsEnabled: boolean;
   defaultModel: string;
+  languagePreference: 'device' | 'zh' | 'en';
 }
 
 export const defaultPreferences: AppPreferences = {
   themeMode: 'warm',
   animationsEnabled: true,
   defaultModel: 'hermes-agent',
+  languagePreference: 'device',
 };
 
 export async function loadPreferences(): Promise<AppPreferences> {
@@ -28,11 +30,16 @@ export async function loadPreferences(): Promise<AppPreferences> {
     const defaultModel = typeof parsed.defaultModel === 'string' && parsed.defaultModel.trim()
       ? parsed.defaultModel.trim()
       : defaultPreferences.defaultModel;
+    const languagePreference =
+      parsed.languagePreference === 'zh' || parsed.languagePreference === 'en' || parsed.languagePreference === 'device'
+        ? parsed.languagePreference
+        : defaultPreferences.languagePreference;
 
     return {
       themeMode,
       animationsEnabled,
       defaultModel,
+      languagePreference,
     };
   } catch {
     return defaultPreferences;
