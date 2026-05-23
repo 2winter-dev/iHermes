@@ -86,6 +86,30 @@ npx expo start --tunnel
 
 Open Expo Go on your phone and scan the QR code.
 
+## iOS Experience
+
+iOS users can try iHermes in two ways:
+
+**Option 1: Build from Source**
+
+```bash
+git clone https://github.com/2winter-dev/iHermes.git
+cd iHermes
+npm install
+npx expo run:ios
+```
+
+**Option 2: Expo Go QR Code**
+
+1. Download [Expo Go](https://apps.apple.com/app/expo-go/id982107779) from the App Store
+2. Scan the QR code below with the **system camera** to try it out
+
+<p align="center">
+  <img src="previewImages/expo-ihermes.png" alt="expo-qr" width="220" />
+</p>
+
+
+
 ## Hermes Connectivity Notes for Web/PWA
 - HTTPS pages cannot call plain HTTP APIs (mixed content blocked)
 - Hermes endpoint must return correct CORS headers

@@ -135,6 +135,30 @@ npx expo start --tunnel
 
 使用手机 Expo Go 扫码即可预览。
 
+## iOS 体验方式
+
+iOS 用户可通过以下两种方式体验 iHermes：
+
+**方式一：自行构建编译**
+
+```bash
+git clone https://github.com/2winter-dev/iHermes.git
+cd iHermes
+npm install
+npx expo run:ios
+```
+
+**方式二：Expo Go 扫码体验**
+
+1. 在 App Store 下载 [Expo Go](https://apps.apple.com/app/expo-go/id982107779) App
+2. 使用**系统相机扫码器**扫描下方二维码即可体验
+
+<p align="center">
+  <img src="previewImages/expo-ihermes.png" alt="expo-qr" width="220" />
+</p>
+
+
+
 ## Web/PWA 连接 Hermes 注意事项
 - HTTPS 页面不能直接请求 HTTP 接口（Mixed Content）
 - Hermes 端需要正确配置 CORS

@@ -9,6 +9,7 @@ import {
   Easing,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -84,6 +85,7 @@ export default function App() {
     defaultPreferences.languagePreference,
   );
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(10);
 
   const theme = themes[themeMode];
 
@@ -182,6 +184,19 @@ export default function App() {
       setForm((prev) => (prev.id ? prev : { ...prev, model: savedPrefs.defaultModel }));
       setPrefsLoaded(true);
     })();
+
+
+    // Monitor keyboard height changes.
+    Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+
+    Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(10);
+    });
+
+    
+
   }, []);
 
   useEffect(() => {
@@ -883,7 +898,7 @@ export default function App() {
           style={styles.keyboardAvoidingView}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <ScrollView contentContainerStyle={styles.container}>
+          <ScrollView contentContainerStyle={{...styles.container}}>
             <AnimatedCard delay={0} enabled={animationsEnabled}>
               <View
                 style={[styles.heroCard, { backgroundColor: theme.cardWarm, borderColor: theme.border }]}
@@ -1268,7 +1283,7 @@ export default function App() {
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.modalOverlay} onPress={() => setShowChatSheet(false)} />
           <View style={[styles.chatSheetAvoid, Platform.OS === 'web' ? styles.chatSheetAvoidWeb : null]}>
-            <View style={[styles.chatSheet, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+            <View style={[styles.chatSheet, { backgroundColor: theme.card, borderColor: theme.border, paddingBottom: keyboardHeight }]}> 
               <View style={styles.chatSheetHeader}>
                 <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.chatTitle}</Text>
                 <View style={styles.chatHeaderRight}>
@@ -1379,7 +1394,7 @@ export default function App() {
                 )}
               </ScrollView>
 
-              <View style={styles.chatComposerRow}>
+              <View style={{...styles.chatComposerRow}}>
                 <TextInput
                   style={[
                     styles.input,
