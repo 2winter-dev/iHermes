@@ -969,7 +969,7 @@ export default function App() {
 
                 <AnimatedCard delay={160} enabled={animationsEnabled}>
                   <View
-                    style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+                    style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, paddingBottom: keyboardHeight }]}
                   >
                     <View style={styles.cardHeaderRow}>
                       <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.instanceManagement}</Text>
@@ -1026,7 +1026,7 @@ export default function App() {
                           placeholderTextColor={theme.inkSoft}
                           autoCapitalize="none"
                           autoCorrect={false}
-                          secureTextEntry
+                          // secureTextEntry
                           value={form.apiKey}
                           onChangeText={(value) => patchForm('apiKey', value)}
                         />

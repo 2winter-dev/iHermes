@@ -14,7 +14,6 @@
     },
     "android": {
       "package": "com.winter.ihermes",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/hermes-logo.png",
@@ -39,12 +38,19 @@
         {
           "backgroundColor": "#FBF4E8",
           "image": "./assets/hermes-logo.png",
-          "imageWidth": 120,
+          "imageWidth": 100,
           "resizeMode": "contain"
         }
-      ]
+      ],
+     [
+    "expo-build-properties",
+    {
+      "android": {
+        "usesCleartextTraffic": true
+      }
+    }
+  ],
     ],
-   
     "extra": {
       "eas": {
         "projectId": "fc1ed858-ee7d-4605-bf65-a9d1b8c6d3b2"
