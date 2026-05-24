@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SimpleMarkdown } from './simple_markdown';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -23,6 +24,10 @@ export function AnimatedMessageBubble({
   userLabel,
   assistantLabel,
   thinkingText,
+  processEntries,
+  showProcessDetails,
+  isProgressHost,
+  toolLabel,
 }: {
   message: BubbleMessage;
   index: number;
@@ -36,9 +41,18 @@ export function AnimatedMessageBubble({
   userLabel: string;
   assistantLabel: string;
   thinkingText: string;
+  processEntries?: Array<{ id: string; text: string; timestamp: string }>;
+  showProcessDetails?: boolean;
+  isProgressHost?: boolean;
+  toolLabel: string;
 }) {
   const fade = useRef(new Animated.Value(enabled ? 0 : 1)).current;
   const slide = useRef(new Animated.Value(enabled ? 10 : 0)).current;
+  const [processExpanded, setProcessExpanded] = useState(false);
+
+  useEffect(() => {
+    setProcessExpanded(false);
+  }, [message.id]);
 
   useEffect(() => {
     if (!enabled) {
@@ -65,6 +79,13 @@ export function AnimatedMessageBubble({
     ]).start();
   }, [enabled, fade, index, slide]);
 
+  const roleLabel =
+    message.role === 'user'
+      ? userLabel
+      : message.role === 'tool'
+      ? toolLabel
+      : assistantLabel;
+
   return (
     <Animated.View style={{ opacity: fade, transform: [{ translateY: slide }] }}>
       <View style={[styles.bubbleRow, message.role === 'user' ? styles.userBubbleRow : styles.assistantBubbleRow]}>
@@ -77,18 +98,45 @@ export function AnimatedMessageBubble({
           style={[
             styles.bubble,
             message.role === 'user' ? styles.userBubbleWrap : styles.assistantBubbleWrap,
+            message.role === 'assistant' && isProgressHost ? styles.assistantBubbleStreaming : null,
             { borderColor, backgroundColor: message.role === 'user' ? userBubble : assistantBubble },
           ]}
         >
           <View style={styles.bubbleHeader}>
-            <Text style={[styles.bubbleRole, { color: softInkColor }]}>{message.role === 'user' ? userLabel : assistantLabel}</Text>
+            <Text style={[styles.bubbleRole, { color: softInkColor }]}>{roleLabel}</Text>
             <Text style={[styles.bubbleTime, { color: softInkColor }]}>{formatTime(message.timestamp)}</Text>
           </View>
           {message.role === 'assistant' && message.content.trim() === '' ? (
             <SkeletonThinking inkColor={inkColor} text={thinkingText} />
           ) : (
-            <Text style={[styles.bubbleText, { color: inkColor }]}>{message.content}</Text>
+            <SimpleMarkdown content={message.content} inkColor={inkColor} softInkColor={softInkColor} />
           )}
+          {message.role === 'assistant' && showProcessDetails && (processEntries?.length ?? 0) > 0 ? (
+            <View style={styles.progressWrap}>
+              <Pressable style={styles.progressHeader} onPress={() => setProcessExpanded((v) => !v)}>
+                <Text style={[styles.progressHeaderIcon, { color: softInkColor }]}>{processExpanded ? '▾' : '▸'}</Text>
+                <Text style={[styles.progressHeaderText, { color: softInkColor }]}>
+                  {isProgressHost ? '调用过程（进行中）' : '调用过程'} · {processEntries?.length ?? 0}
+                </Text>
+              </Pressable>
+              {processExpanded ? (
+                <View style={styles.progressContent} >
+                  {processEntries?.map((entry) => (
+                    <View key={entry.id} style={styles.progressRow}>
+                      <Text style={[styles.progressTime, { color: softInkColor }]}>{formatTime(entry.timestamp)}</Text>
+                      {entry.text.includes('\n') ? (
+                        <View style={styles.progressDetailBlock}>
+                          <Text style={[styles.progressDetailText, { color: inkColor }]}>{entry.text}</Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.progressText, { color: inkColor }]}>{entry.text}</Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </Pressable>
       </View>
     </Animated.View>
@@ -165,13 +213,15 @@ const styles = StyleSheet.create({
     minWidth: '28%',
   },
   assistantBubbleWrap: {
-    maxWidth: '84%',
-    minWidth: '30%',
+    maxWidth: '92%',
+    minWidth: '36%',
+  },
+  assistantBubbleStreaming: {
+    width: '92%',
   },
   bubbleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   bubbleRole: { fontSize: 12, fontWeight: '700' },
   bubbleTime: { fontSize: 11, fontWeight: '600' },
-  bubbleText: { fontSize: 14, lineHeight: 20 },
   thinkingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -203,5 +253,67 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#00000014',
     width: '56%',
+  },
+  progressWrap: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#00000012',
+    paddingTop: 6,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  progressHeaderIcon: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  progressHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  progressContent: {
+    maxHeight:1200,
+    overflow: 'hidden',
+  },
+  progressList: {
+    gap: 4,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  progressTime: {
+    width: 36,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  progressText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  progressDetailBlock: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#00000020',
+    borderRadius: 8,
+    backgroundColor: '#00000008',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  progressDetailText: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    fontFamily: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
   },
 });

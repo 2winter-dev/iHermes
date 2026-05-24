@@ -18,7 +18,7 @@
 <p align="center">
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/2winter-dev/iHermes?style=flat-square"/></a>
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-blue?style=flat-square"/>
-  <img alt="Expo" src="https://img.shields.io/badge/Expo-SDK%2056-4630EB?style=flat-square&logo=expo"/>
+  <img alt="Expo" src="https://img.shields.io/badge/Expo-SDK%2054-4630EB?style=flat-square&logo=expo"/>
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-Yes-3178C6?style=flat-square&logo=typescript"/>
 </p>
 
@@ -92,6 +92,24 @@
 - 动画开关
 - **多语言支持：中文 / English，默认跟随设备语言，其他语言回退英文**
 - 版本信息、帮助与 FAQ
+
+## 更新日志（v0.3）
+
+### 新功能
+- 新增系统分享按钮，可一键分享 iHermes 仓库地址（按钮文案包含当前 App 版本）。
+- 设置页新增“思考过程”开关，并与“动画”归类到“其他”分组。
+- 版本信息区优化：展示“默认模型和数据”，并将分享入口放到同一行。
+- FAQ 新增 iOS 快速使用说明：下载 Expo Go 后扫码即可免安装体验 iHermes。
+- 聊天气泡支持基础 Markdown 渲染（标题、粗体、链接、图片、表格）。
+- 对话过程可视化增强：支持展示工具调用和过程明细，便于排查与理解执行链路。
+
+### 修复与优化
+- 顶部标题 `iHermes Chat` 在窄屏下改为单行显示，避免换行。
+- 移除“非流式输出”路径，统一走流式输出，减少行为分叉。
+- 修复设置项“关”状态视觉反馈，关闭时背景色可正确区分。
+- 增强长请求稳定性：支持超时、取消（挂起）与更清晰的错误/状态处理。
+- 改进 Tool 按钮与聊天工具条样式，提升可读性与点击反馈。
+- 修复原生端聊天历史存储容量风险：原生端不再写入大体积历史，避免 SecureStore 尺寸限制问题。
 
 ## 技术栈
 - Expo + React Native + React Native Web

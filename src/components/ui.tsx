@@ -103,7 +103,7 @@ export function ToolTextButton({
   color: string;
 }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={styles.toolButton}>
+    <Pressable onPress={onPress} disabled={disabled} style={[styles.toolButton, disabled ? styles.toolButtonDisabled : null]}>
       <Text style={[styles.toolButtonText, { color }, disabled && styles.toolButtonTextDisabled]}>{label}</Text>
     </Pressable>
   );
@@ -153,7 +153,15 @@ const styles = StyleSheet.create({
   button: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 2 },
   buttonDisabled: { opacity: 0.55 } as ViewStyle,
   buttonText: { fontWeight: '700' },
-  toolButton: { paddingVertical: 2 },
+  toolButton: {
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cdb8a2',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  toolButtonDisabled: { opacity: 0.55 } as ViewStyle,
   toolButtonText: { fontSize: 12, fontWeight: '700' },
   toolButtonTextDisabled: { color: '#b59e87' },
   tabButton: { minWidth: 70, alignItems: 'center' },

@@ -3,7 +3,7 @@
     "name": "iHermes",
     "slug": "iHermes",
     "owner": "zical",
-    "version": "1.0.0",
+    "version": "0.3.0",
     "description": "iHermes 是 Hermes 手机版客户端，支持 iOS、Android 与 Web App，多实例连接、会话对话、工具调用可视化。",
     "orientation": "portrait",
     "icon": "./assets/hermes-logo.png",

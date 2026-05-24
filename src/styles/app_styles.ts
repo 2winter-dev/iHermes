@@ -169,7 +169,7 @@ export const styles = StyleSheet.create({
   chatFabText: { fontWeight: '800', fontSize: 14 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.22)', alignItems: 'center' },
   modalOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
   chatSheetAvoid: {
@@ -208,6 +208,17 @@ export const styles = StyleSheet.create({
     marginBottom: 0,
   },
   chatSheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  chatHeaderLeft: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    minWidth: 0,
+    flex: 1,
+  },
+  chatHeaderInstance: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
   chatHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,6 +241,49 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: -2,
+  },
+  processPanel: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    gap: 6,
+  },
+  processPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  processPanelTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  processPanelHint: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  processScroll: {
+    maxHeight: 130,
+  },
+  processList: {
+    gap: 5,
+    paddingRight: 6,
+  },
+  processEntry: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  processEntryTime: {
+    width: 42,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  processEntryText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
   },
   stepsPanel: {
     borderWidth: 1,
@@ -273,7 +327,15 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  chatToolsRow: { flexDirection: 'row', gap: 10 },
+  chatToolsRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  iconToolButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   toolButton: { paddingVertical: 2 },
   toolButtonText: { fontSize: 12, fontWeight: '700' },
   toolButtonTextDisabled: { color: '#b59e87' },

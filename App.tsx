@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Easing,
@@ -15,7 +14,7 @@ import {
   Modal,
   Platform,
   Pressable,
-
+  Share,
   ScrollView,
   Text,
   TextInput,
@@ -56,6 +55,37 @@ type ToolStep = {
   endedAt?: string;
 };
 
+type ProcessEntry = {
+  id: string;
+  text: string;
+  timestamp: string;
+};
+
+type ThinkingStreamState = {
+  raw: string;
+  renderedContent: string;
+  renderedReasoning: string;
+};
+
+type ToolEventPayload = {
+  toolName?: string;
+  detail?: string;
+};
+
+const CHAT_TIMEOUT_MS = 180_000;
+const LONG_WAIT_REMINDER_SECONDS = 45;
+const CHAT_DEBUG_PREFIX = '[iHermes chat]';
+
+function chatDebug(...args: unknown[]) {
+  try {
+    if (typeof __DEV__ === 'undefined' || __DEV__) {
+      console.log(CHAT_DEBUG_PREFIX, ...args);
+    }
+  } catch {
+    // no-op
+  }
+}
+
 interface ConnectionFormState {
   id?: string;
   name: string;
@@ -84,6 +114,7 @@ export default function App() {
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(
     defaultPreferences.languagePreference,
   );
+  const [showProcessDetails, setShowProcessDetails] = useState(defaultPreferences.showProcessDetails);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(10);
 
@@ -101,10 +132,18 @@ export default function App() {
   const [chatPhaseText, setChatPhaseText] = useState('');
   const [chatHistoryMap, setChatHistoryMap] = useState<ChatHistoryMap>({});
   const [toolSteps, setToolSteps] = useState<ToolStep[]>([]);
-  const [toolStepsExpanded, setToolStepsExpanded] = useState(true);
+  const [processEntries, setProcessEntries] = useState<ProcessEntry[]>([]);
+  const [processEntriesByMessage, setProcessEntriesByMessage] = useState<Record<string, ProcessEntry[]>>({});
+  const [requestStartedAt, setRequestStartedAt] = useState<number | null>(null);
+  const [requestElapsedSeconds, setRequestElapsedSeconds] = useState(0);
   const [hermesVersion, setHermesVersion] = useState<string>(translations.zh.unknown);
   const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
   const [showInstallHint, setShowInstallHint] = useState(false);
+  const requestAbortRef = useRef<AbortController | null>(null);
+  const activeAssistantIdRef = useRef<string | null>(null);
+  const lastToolEventRef = useRef<string>('');
+  const chatScrollRef = useRef<ScrollView | null>(null);
+  const processEntriesRef = useRef<ProcessEntry[]>([]);
 
   const blobTopAnim = useRef(new Animated.Value(0)).current;
   const blobBottomAnim = useRef(new Animated.Value(0)).current;
@@ -124,6 +163,7 @@ export default function App() {
     [deviceLocale, languagePreference],
   );
   const t = translations[resolvedLanguage];
+  const toggleOffColor = '#f1f5f9';
 
   const lastAssistantText = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -142,6 +182,10 @@ export default function App() {
     const previous = messages[messages.length - 2];
     return last.role === 'assistant' && previous.role === 'user';
   }, [isSending, messages, selectedConnection]);
+
+  useEffect(() => {
+    processEntriesRef.current = processEntries;
+  }, [processEntries]);
 
   useEffect(() => {
     // Bootstrap: load local connections/preferences/history and auto-connect first instance.
@@ -181,6 +225,7 @@ export default function App() {
       setAnimationsEnabled(savedPrefs.animationsEnabled);
       setDefaultModel(savedPrefs.defaultModel);
       setLanguagePreference(savedPrefs.languagePreference);
+      setShowProcessDetails(savedPrefs.showProcessDetails);
       setForm((prev) => (prev.id ? prev : { ...prev, model: savedPrefs.defaultModel }));
       setPrefsLoaded(true);
     })();
@@ -204,12 +249,31 @@ export default function App() {
       return;
     }
     // Persist user-facing preferences whenever they change.
-    const next: AppPreferences = { themeMode, animationsEnabled, defaultModel, languagePreference };
+    const next: AppPreferences = {
+      themeMode,
+      animationsEnabled,
+      streamEnabled: true,
+      defaultModel,
+      languagePreference,
+      showProcessDetails,
+    };
     void savePreferences(next);
-  }, [animationsEnabled, defaultModel, languagePreference, prefsLoaded, themeMode]);
+  }, [animationsEnabled, defaultModel, languagePreference, prefsLoaded, showProcessDetails, themeMode]);
+
+  useEffect(() => {
+    if (!isSending || !requestStartedAt) {
+      setRequestElapsedSeconds(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setRequestElapsedSeconds(Math.max(0, Math.floor((Date.now() - requestStartedAt) / 1000)));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isSending, requestStartedAt]);
 
   useEffect(() => {
     if (!selectedId) return;
+    if (isSending) return;
     // Keep per-instance chat history in local storage for quick restoration.
     setChatHistoryMap((prev) => {
       const next: ChatHistoryMap = {
@@ -224,7 +288,7 @@ export default function App() {
       void saveChatHistoryMap(next);
       return next;
     });
-  }, [messages, selectedId]);
+  }, [isSending, messages, selectedId]);
 
   useEffect(() => {
     if (testResult === translations.zh.notTested || testResult === translations.en.notTested) {
@@ -641,6 +705,12 @@ export default function App() {
     if (!selectedConnection) {
       return;
     }
+    chatDebug('requestAssistantReply.start', {
+      baseUrl: selectedConnection.baseUrl,
+      model: selectedConnection.model || defaultModel,
+      showProcessDetails,
+      historyCount: history.length,
+    });
 
     const placeholderId = `${Date.now()}-a`;
     const placeholder: ChatBubble = {
@@ -650,29 +720,92 @@ export default function App() {
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, placeholder]);
+    activeAssistantIdRef.current = placeholderId;
     setChatPhaseText(t.assistantThinking);
     setToolSteps([]);
-    setToolStepsExpanded(true);
+    setProcessEntries([]);
+    processEntriesRef.current = [];
+    setProcessEntriesByMessage((prev) => {
+      const next = { ...prev };
+      delete next[placeholderId];
+      return next;
+    });
+    setRequestStartedAt(Date.now());
 
+    const abortController = new AbortController();
+    requestAbortRef.current = abortController;
+    const thinkingState: ThinkingStreamState = {
+      raw: '',
+      renderedContent: '',
+      renderedReasoning: '',
+    };
     try {
-      // Preferred path: stream assistant tokens and tool-call events in real time.
+      const requestExtras = showProcessDetails
+        ? {
+            include_reasoning: true,
+            reasoning: true,
+            thinking: true,
+            stream_options: {
+              include_usage: true,
+              include_reasoning: true,
+            },
+          }
+        : {
+            stream_options: { include_usage: true },
+          };
       await streamChatCompletion({
         baseUrl: selectedConnection.baseUrl,
         apiKey: selectedConnection.apiKey,
         model: selectedConnection.model || defaultModel,
         messages: history.map((msg) => ({ role: msg.role, content: msg.content })),
+        extraRequestBody: requestExtras,
         onDelta: (delta) => {
           if (!delta) return;
+          const extracted = consumeThinkingDelta(thinkingState, delta);
+          if (extracted.reasoningDelta && showProcessDetails) {
+            chatDebug('stream.reasoning.inline', { chars: extracted.reasoningDelta.length });
+            pushProcessEntry(extracted.reasoningDelta);
+          }
+          if (!extracted.contentDelta) return;
+          chatDebug('stream.delta', { chars: extracted.contentDelta.length });
           setChatPhaseText(t.assistantReplying);
           setMessages((prev) =>
-            prev.map((msg) => (msg.id === placeholderId ? { ...msg, content: msg.content + delta } : msg)),
+            prev.map((msg) =>
+              msg.id === placeholderId ? { ...msg, content: msg.content + extracted.contentDelta } : msg,
+            ),
           );
         },
-        onToolEvent: (toolName) => {
-          pushToolStep(toolName);
-          setChatPhaseText(toolName ? `${t.callingTool} ${toolName}` : t.callingToolFallback);
+        onReasoning: (reasoning) => {
+          if (!showProcessDetails || !reasoning.trim()) return;
+          chatDebug('stream.reasoning', { chars: reasoning.length });
+          pushProcessEntry(reasoning);
         },
+            onToolEvent: (toolEvent) => {
+              const normalizedToolName = (toolEvent?.toolName || '').trim();
+              const detail = (toolEvent?.detail || '').trim();
+              const dedupeKey = `${normalizedToolName}::${detail.slice(0, 140)}`;
+              if (lastToolEventRef.current === dedupeKey) {
+                return;
+              }
+              lastToolEventRef.current = dedupeKey;
+              chatDebug('stream.tool_event', { toolName: normalizedToolName, detailChars: detail.length });
+              pushToolStep(normalizedToolName);
+              if (showProcessDetails) {
+                if (normalizedToolName) {
+                  pushProcessEntry(`tool.${normalizedToolName}`);
+                } else {
+                  pushProcessEntry(t.callingToolFallback);
+                }
+                if (detail) {
+                  pushProcessEntry(detail);
+                }
+              }
+              setChatPhaseText(normalizedToolName ? `${t.callingTool} ${normalizedToolName}` : t.callingToolFallback);
+            },
+        timeoutMs: CHAT_TIMEOUT_MS,
+        signal: abortController.signal,
       });
+      chatDebug('stream.end');
 
       setMessages((prev) =>
         prev.map((msg) =>
@@ -681,18 +814,39 @@ export default function App() {
       );
       completeRunningToolSteps(true);
       setChatPhaseText('');
-    } catch {
-      // Fallback path for gateways/runtimes without streaming support.
-      const client = new HermesApiClient(selectedConnection);
-      const response = await client.chatCompletion({
-        model: selectedConnection.model || defaultModel,
-        stream: false,
-        messages: history.map((msg) => ({ role: msg.role, content: msg.content })),
-      });
-      const text = response.choices?.[0]?.message?.content ?? t.emptyResponse;
-      setMessages((prev) => prev.map((msg) => (msg.id === placeholderId ? { ...msg, content: text } : msg)));
-      completeRunningToolSteps(true);
+    } catch (error) {
+      chatDebug('requestAssistantReply.error', toErrorMessage(error));
+      if (isAbortError(error)) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === placeholderId && !msg.content.trim() ? { ...msg, content: t.requestSuspended } : msg,
+          ),
+        );
+        completeRunningToolSteps(false);
+      } else {
+        const errorText = `${t.requestFailed}: ${toErrorMessage(error)}`;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === placeholderId ? { ...msg, content: msg.content.trim() ? msg.content : errorText } : msg,
+          ),
+        );
+        completeRunningToolSteps(false);
+      }
       setChatPhaseText('');
+      return;
+    } finally {
+      const finalProcessEntries = processEntriesRef.current;
+      if (finalProcessEntries.length > 0) {
+        setProcessEntriesByMessage((prev) => ({
+          ...prev,
+          [placeholderId]: finalProcessEntries,
+        }));
+      }
+      chatDebug('requestAssistantReply.finally');
+      setRequestStartedAt(null);
+      requestAbortRef.current = null;
+      activeAssistantIdRef.current = null;
+      lastToolEventRef.current = '';
     }
   }
 
@@ -703,6 +857,7 @@ export default function App() {
     }
 
     setIsSending(true);
+    chatDebug('handleSendMessage', { promptChars: prompt.length });
     setChatInput('');
 
     const userMessage: ChatBubble = {
@@ -718,6 +873,9 @@ export default function App() {
     try {
       await requestAssistantReply(nextMessages);
     } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
       const errorMessage: ChatBubble = {
         id: `${Date.now()}-e`,
         role: 'assistant',
@@ -740,9 +898,20 @@ export default function App() {
     setIsSending(true);
     const truncated = messages.slice(0, -1);
     setMessages(truncated);
+    setProcessEntriesByMessage((prev) => {
+      const valid = new Set(truncated.map((item) => item.id));
+      const next: Record<string, ProcessEntry[]> = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (valid.has(key)) next[key] = value;
+      }
+      return next;
+    });
     try {
       await requestAssistantReply(truncated);
     } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
       const errorMessage: ChatBubble = {
         id: `${Date.now()}-e`,
         role: 'assistant',
@@ -757,6 +926,19 @@ export default function App() {
     }
   }
 
+  function pushProcessEntry(text: string) {
+    if (!text.trim()) return;
+    const now = new Date().toISOString();
+    setProcessEntries((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text,
+        timestamp: now,
+      },
+    ]);
+  }
+
   async function handleCopyLastReply() {
     if (!lastAssistantText) {
       Alert.alert(t.noCopyContentTitle, t.noCopyContentDesc);
@@ -768,6 +950,11 @@ export default function App() {
 
   function handleClearChat() {
     setMessages([]);
+    setToolSteps([]);
+    setProcessEntries([]);
+    processEntriesRef.current = [];
+    setProcessEntriesByMessage({});
+    setChatPhaseText('');
   }
 
   async function copyBubbleContent(content: string) {
@@ -775,8 +962,21 @@ export default function App() {
     Alert.alert(t.copiedTitle, t.copiedBubbleDesc);
   }
 
+  async function handleShareRepository() {
+    try {
+      await Share.share({
+        message: APP_CONFIG.openSourceRepoUrl,
+        url: APP_CONFIG.openSourceRepoUrl,
+        title: t.viewRepository,
+      });
+    } catch (error) {
+      Alert.alert(t.shareFailedTitle, `${t.shareFailedDesc}: ${toErrorMessage(error)}`);
+    }
+  }
+
   function pushToolStep(name?: string) {
-    const stepName = name?.trim() ? name.trim() : 'unknown_tool';
+    const stepName = name?.trim();
+    const finalName = stepName || t.callingToolFallback;
     // Mark previous running step as complete before opening the next step.
     setToolSteps((prev) => {
       const next = prev.map((item) =>
@@ -788,7 +988,7 @@ export default function App() {
         ...next,
         {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: stepName,
+          name: finalName,
           status: 'running' as ToolStepStatus,
           startedAt: new Date().toISOString(),
         },
@@ -808,6 +1008,27 @@ export default function App() {
           : item,
       ),
     );
+  }
+
+  function handleSuspendRequest() {
+    if (!isSending) return;
+    requestAbortRef.current?.abort();
+  }
+
+  function handleReloadSession() {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.location.reload();
+      return;
+    }
+    Alert.alert(t.reload, t.longWaitHint);
+  }
+
+  function handleScrollToTop() {
+    chatScrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  function handleScrollToBottom() {
+    chatScrollRef.current?.scrollToEnd({ animated: true });
   }
 
   async function handleInstallPwa() {
@@ -908,7 +1129,15 @@ export default function App() {
                   style={[styles.logo, { borderColor: theme.border }]}
                 />
                 <View style={styles.heroTextWrap}>
-                  <Text style={[styles.title, { color: theme.inkStrong }]}>iHermes Chat</Text>
+                  <Text
+                    style={[styles.title, { color: theme.inkStrong }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
+                  >
+                    iHermes Chat
+                  </Text>
                   <Text style={[styles.subtitle, { color: theme.inkSoft }]}>{t.heroSubtitle}</Text>
                 </View>
                 <Pressable style={styles.heroStatusWrap} onPress={() => void handleRefreshSelectedConnection()}>
@@ -1116,12 +1345,19 @@ export default function App() {
                       />
                     </View>
 
-                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.animations}</Text>
+                    <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.other}</Text>
                     <View style={styles.row}>
                       <ActionButton
-                        label={animationsEnabled ? t.on : t.off}
+                        label={`${t.animations} ${animationsEnabled ? t.on : t.off}`}
                         onPress={() => setAnimationsEnabled((v) => !v)}
-                        color={theme.buttonPrimary}
+                        color={animationsEnabled ? theme.buttonPrimary : toggleOffColor}
+                        borderColor={theme.border}
+                        textColor={theme.ink}
+                      />
+                      <ActionButton
+                        label={`${t.processEvents} ${showProcessDetails ? t.on : t.off}`}
+                        onPress={() => setShowProcessDetails((v) => !v)}
+                        color={showProcessDetails ? theme.buttonPrimary : toggleOffColor}
                         borderColor={theme.border}
                         textColor={theme.ink}
                       />
@@ -1134,8 +1370,18 @@ export default function App() {
                   <View style={[styles.card, { backgroundColor: '#ffffff', borderColor: theme.border }]}> 
                     <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.versionInfo}</Text>
                     <View style={styles.versionRow}>
-                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.hermesVersion}: {hermesVersion}</Text>
-                      <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.appVersion}: {APP_CONFIG.appVersion}</Text>
+                      <View style={styles.row}>
+                        <Text style={[styles.hint, { color: theme.inkSoft }]}>
+                          {t.hermesVersion}: {selectedConnection?.model || defaultModel}
+                        </Text>
+                        <ActionButton
+                          label={`${t.shareRepository} ${APP_CONFIG.appVersion}`}
+                          onPress={() => void handleShareRepository()}
+                          color={theme.buttonPrimary}
+                          borderColor={theme.border}
+                          textColor={theme.ink}
+                        />
+                      </View>
                     </View>
                   </View>
                 </AnimatedCard>
@@ -1195,6 +1441,8 @@ export default function App() {
                       <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqA2}</Text>
                       <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqQ3}</Text>
                       <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqA3}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqQ4}</Text>
+                      <Text style={[styles.helpText, { color: theme.inkSoft }]}>{t.faqA4}</Text>
                     </View>
                     <Text style={[styles.settingLabel, { color: theme.inkStrong }]}>{t.openSource}</Text>
                     <Pressable
@@ -1285,66 +1533,18 @@ export default function App() {
           <View style={[styles.chatSheetAvoid, Platform.OS === 'web' ? styles.chatSheetAvoidWeb : null]}>
             <View style={[styles.chatSheet, { backgroundColor: theme.card, borderColor: theme.border, paddingBottom: keyboardHeight }]}> 
               <View style={styles.chatSheetHeader}>
-                <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.chatTitle}</Text>
+                <View style={styles.chatHeaderLeft}>
+                  <Text style={[styles.cardTitle, { color: theme.inkStrong }]}>{t.chatTitle}</Text>
+                  <Text style={[styles.chatHeaderInstance, { color: theme.inkSoft }]}>
+                    {t.currentInstanceLabel}: {selectedConnection ? selectedConnection.name : t.notSelected}
+                  </Text>
+                </View>
                 <View style={styles.chatHeaderRight}>
-                  {isSending ? (
-                    <View style={styles.thinkingChip}>
-                      <ActivityIndicator size="small" color={theme.inkStrong} />
-                      <Text style={[styles.thinkingChipText, { color: theme.inkStrong }]}>{t.thinking}</Text>
-                    </View>
-                  ) : null}
                   <Pressable onPress={() => setShowChatSheet(false)}>
                     <Text style={[styles.toolButtonText, { color: theme.inkStrong }]}>{t.close}</Text>
                   </Pressable>
                 </View>
               </View>
-              {chatPhaseText ? (
-                <Text style={[styles.phaseText, { color: theme.inkSoft }]}>{chatPhaseText}</Text>
-              ) : null}
-              {toolSteps.length > 0 ? (
-                <View style={[styles.stepsPanel, { borderColor: theme.borderSoft }]}>
-                  <Pressable
-                    style={styles.stepsHeader}
-                    onPress={() => setToolStepsExpanded((v) => !v)}
-                  >
-                    <Text style={[styles.stepsTitle, { color: theme.inkStrong }]}>
-                      {t.toolSteps} ({toolSteps.length})
-                    </Text>
-                    <Text style={[styles.stepsToggle, { color: theme.inkSoft }]}>
-                      {toolStepsExpanded ? t.collapse : t.expand}
-                    </Text>
-                  </Pressable>
-                  {toolStepsExpanded ? (
-                    <View style={styles.stepsList}>
-                      {toolSteps.map((step, idx) => (
-                        <View key={step.id} style={styles.stepRow}>
-                          <Text style={[styles.stepIndex, { color: theme.inkSoft }]}>{idx + 1}.</Text>
-                          <Text style={[styles.stepName, { color: theme.ink }]}>{step.name}</Text>
-                          <Text
-                            style={[
-                              styles.stepStatus,
-                              {
-                                color:
-                                  step.status === 'success'
-                                    ? theme.online
-                                    : step.status === 'failed'
-                                    ? theme.offline
-                                    : theme.testing,
-                              },
-                            ]}
-                          >
-                            {step.status === 'success'
-                              ? t.stepSuccess
-                              : step.status === 'failed'
-                              ? t.stepFailed
-                              : t.stepRunning}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
               <View style={styles.chatToolsRow}>
                 <ToolTextButton
                   label={t.clear}
@@ -1364,10 +1564,40 @@ export default function App() {
                   onPress={handleCopyLastReply}
                   color={theme.inkStrong}
                 />
+                <Pressable
+                  style={[styles.iconToolButton, { borderColor: theme.borderSoft, backgroundColor: theme.cardTint }]}
+                  onPress={handleScrollToTop}
+                  accessibilityRole="button"
+                  accessibilityLabel="Scroll to top"
+                >
+                  <Ionicons name="arrow-up" size={14} color={theme.inkStrong} />
+                </Pressable>
+                <Pressable
+                  style={[styles.iconToolButton, { borderColor: theme.borderSoft, backgroundColor: theme.cardTint }]}
+                  onPress={handleScrollToBottom}
+                  accessibilityRole="button"
+                  accessibilityLabel="Scroll to bottom"
+                >
+                  <Ionicons name="arrow-down" size={14} color={theme.inkStrong} />
+                </Pressable>
+                {isSending ? (
+                  <ToolTextButton
+                    label={t.suspend}
+                    onPress={handleSuspendRequest}
+                    color={theme.offline}
+                  />
+                ) : null}
+                {requestElapsedSeconds >= LONG_WAIT_REMINDER_SECONDS ? (
+                  <ToolTextButton
+                    label={t.reload}
+                    onPress={handleReloadSession}
+                    color={theme.inkStrong}
+                  />
+                ) : null}
               </View>
-              <Text style={[styles.hint, { color: theme.inkSoft }]}>{t.currentInstanceLabel}: {selectedConnection ? selectedConnection.name : t.notSelected}</Text>
 
               <ScrollView
+                ref={chatScrollRef}
                 style={[styles.chatBox, { borderColor: theme.borderSoft }]}
                 contentContainerStyle={styles.chatBoxContent}
               >
@@ -1388,7 +1618,15 @@ export default function App() {
                       softInkColor={theme.inkSoft}
                       userLabel={t.userLabel}
                       assistantLabel="Hermes"
+                      toolLabel={t.toolLabel}
                       thinkingText={t.assistantThinking}
+                      showProcessDetails={showProcessDetails}
+                      processEntries={
+                        message.id === activeAssistantIdRef.current
+                          ? processEntries
+                          : processEntriesByMessage[message.id] ?? []
+                      }
+                      isProgressHost={message.id === activeAssistantIdRef.current && isSending}
                     />
                   ))
                 )}
@@ -1433,100 +1671,800 @@ async function streamChatCompletion({
   apiKey,
   model,
   messages,
+  extraRequestBody,
   onDelta,
+  onReasoning,
   onToolEvent,
+  timeoutMs,
+  signal,
 }: {
   baseUrl: string;
   apiKey: string;
   model: string;
   messages: HermesChatMessage[];
+  extraRequestBody?: Record<string, unknown>;
   onDelta: (delta: string) => void;
-  onToolEvent?: (toolName?: string) => void;
+  onReasoning?: (reasoning: string) => void;
+  onToolEvent?: (event?: ToolEventPayload) => void;
+  timeoutMs?: number;
+  signal?: AbortSignal;
 }): Promise<void> {
   // OpenAI-compatible SSE parser. Handles token deltas plus tool-call deltas.
   const normalized = HermesApiClient.normalizeBaseUrl(baseUrl);
-  const response = await fetch(`${normalized}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      stream: true,
-      messages,
-    }),
-  });
+  chatDebug('streamChatCompletion.start', { url: `${normalized}/v1/chat/completions` });
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let releaseExternalAbort: (() => void) | null = null;
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  if (timeoutMs && timeoutMs > 0) {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+  }
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      const onAbort = () => controller.abort();
+      signal.addEventListener('abort', onAbort, { once: true });
+      releaseExternalAbort = () => signal.removeEventListener('abort', onAbort);
+    }
   }
 
-  if (!response.body || typeof response.body.getReader !== 'function') {
-    throw new Error('Streaming is not supported in this runtime.');
+  if (Platform.OS !== 'web' && typeof XMLHttpRequest !== 'undefined') {
+    chatDebug('streamChatCompletion.transport', 'xhr');
+    await streamChatCompletionWithXhr({
+      url: `${normalized}/v1/chat/completions`,
+      apiKey,
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages,
+        ...(extraRequestBody ?? {}),
+      }),
+      onDelta,
+      onReasoning,
+      onToolEvent,
+      timeoutMs,
+      signal: controller.signal,
+    });
+    return;
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8');
-  let buffer = '';
+  try {
+    chatDebug('streamChatCompletion.transport', 'fetch');
+    const response = await fetch(`${normalized}/v1/chat/completions`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages,
+        ...(extraRequestBody ?? {}),
+      }),
+    });
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+    }
+    chatDebug('streamChatCompletion.response', {
+      status: response.status,
+      contentType: response.headers.get('content-type') || '',
+    });
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
+    if (!response.body || typeof response.body.getReader !== 'function') {
+      throw new Error('Streaming is not supported in this runtime.');
+    }
 
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line.startsWith('data:')) continue;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    const streamState = { buffer: '', debugSamplesLogged: 0 };
+    let chunkCount = 0;
+    let eventCount = 0;
+    let deltaChars = 0;
+    let reasoningCount = 0;
+    let toolEventCount = 0;
 
-      const payload = line.slice(5).trim();
-      if (!payload || payload === '[DONE]') continue;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunkCount += 1;
 
+      const metrics = parseAndDispatchSseBlocks({
+        chunk: decoder.decode(value, { stream: true }),
+        state: streamState,
+        onDelta,
+        onReasoning,
+        onToolEvent,
+      });
+      eventCount += metrics.events;
+      deltaChars += metrics.deltaChars;
+      reasoningCount += metrics.reasoningCount;
+      toolEventCount += metrics.toolEvents;
+    }
+    chatDebug('streamChatCompletion.done', {
+      chunkCount,
+      eventCount,
+      deltaChars,
+      reasoningCount,
+      toolEventCount,
+    });
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (releaseExternalAbort) {
+      releaseExternalAbort();
+    }
+  }
+}
+
+async function streamChatCompletionWithXhr({
+  url,
+  apiKey,
+  body,
+  onDelta,
+  onReasoning,
+  onToolEvent,
+  timeoutMs,
+  signal,
+}: {
+  url: string;
+  apiKey: string;
+  body: string;
+  onDelta: (delta: string) => void;
+  onReasoning?: (reasoning: string) => void;
+  onToolEvent?: (event?: ToolEventPayload) => void;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let consumedLength = 0;
+    const streamState = { buffer: '', debugSamplesLogged: 0 };
+    let chunkCount = 0;
+    let eventCount = 0;
+    let deltaChars = 0;
+    let reasoningCount = 0;
+    let toolEventCount = 0;
+    let detached = false;
+
+    const detach = () => {
+      if (detached) return;
+      detached = true;
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+    };
+
+    const onAbort = () => {
       try {
-        const parsed = JSON.parse(payload) as {
-          choices?: Array<{
-            delta?: {
-              content?: string;
-              tool_calls?: Array<{ function?: { name?: string } }>;
-              tool_name?: string;
-              function_call?: { name?: string };
-            };
-            message?: { content?: string };
-          }>;
-          delta?: { content?: string };
-          event?: string;
-        };
-
-        const delta =
-          parsed.choices?.[0]?.delta?.content ??
-          parsed.choices?.[0]?.message?.content ??
-          parsed.delta?.content ??
-          '';
-
-        if (delta) onDelta(delta);
-
-        const deltaObj = parsed.choices?.[0]?.delta;
-        const toolName =
-          deltaObj?.tool_calls?.[0]?.function?.name ??
-          deltaObj?.tool_name ??
-          deltaObj?.function_call?.name;
-        if (deltaObj?.tool_calls || deltaObj?.tool_name || deltaObj?.function_call || parsed.event?.includes('tool')) {
-          onToolEvent?.(toolName);
-        }
+        xhr.abort();
       } catch {
+        // no-op
+      }
+      detach();
+      reject(new Error('AbortError'));
+    };
+
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Authorization', `Bearer ${apiKey}`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Accept', 'text/event-stream');
+    if (timeoutMs && timeoutMs > 0) {
+      xhr.timeout = timeoutMs;
+    }
+
+    xhr.onprogress = () => {
+      const text = xhr.responseText || '';
+      if (text.length <= consumedLength) return;
+      const chunk = text.slice(consumedLength);
+      consumedLength = text.length;
+      chunkCount += 1;
+      const metrics = parseAndDispatchSseBlocks({
+        chunk,
+        state: streamState,
+        onDelta,
+        onReasoning,
+        onToolEvent,
+      });
+      eventCount += metrics.events;
+      deltaChars += metrics.deltaChars;
+      reasoningCount += metrics.reasoningCount;
+      toolEventCount += metrics.toolEvents;
+    };
+
+    xhr.onerror = () => {
+      detach();
+      reject(new Error('Network request failed during streaming.'));
+    };
+    xhr.ontimeout = () => {
+      detach();
+      reject(new Error('Streaming request timed out.'));
+    };
+    xhr.onload = () => {
+      // Flush any remaining parsed block.
+      const flushMetrics = parseAndDispatchSseBlocks({
+        chunk: '\n\n',
+        state: streamState,
+        onDelta,
+        onReasoning,
+        onToolEvent,
+      });
+      eventCount += flushMetrics.events;
+      deltaChars += flushMetrics.deltaChars;
+      reasoningCount += flushMetrics.reasoningCount;
+      toolEventCount += flushMetrics.toolEvents;
+      detach();
+      chatDebug('streamChatCompletionWithXhr.done', {
+        status: xhr.status,
+        chunkCount,
+        eventCount,
+        deltaChars,
+        reasoningCount,
+        toolEventCount,
+      });
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText || xhr.statusText}`));
+      }
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+
+    xhr.send(body);
+  });
+}
+
+function parseAndDispatchSseBlocks({
+  chunk,
+  state,
+  onDelta,
+  onReasoning,
+  onToolEvent,
+}: {
+  chunk: string;
+  state: { buffer: string; debugSamplesLogged: number };
+  onDelta: (delta: string) => void;
+  onReasoning?: (reasoning: string) => void;
+  onToolEvent?: (event?: ToolEventPayload) => void;
+}): { events: number; deltaChars: number; reasoningCount: number; toolEvents: number } {
+  let eventCounter = 0;
+  let deltaChars = 0;
+  let reasoningCount = 0;
+  let toolEvents = 0;
+  state.buffer += chunk;
+  const blocks = state.buffer.split(/\r?\n\r?\n/);
+  state.buffer = blocks.pop() ?? '';
+
+  for (const block of blocks) {
+    eventCounter += 1;
+    let eventName = '';
+    const dataParts: string[] = [];
+
+    for (const rawLine of block.split(/\r?\n/)) {
+      const line = rawLine.trimEnd();
+      if (!line || line.startsWith(':')) continue;
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim();
+        continue;
+      }
+      if (line.startsWith('data:')) {
+        dataParts.push(line.slice(5).trimStart());
+      }
+    }
+
+
+
+    if (dataParts.length === 0) continue;
+    const payload = dataParts.join('\n').trim();
+    if (!payload || payload === '[DONE]') continue;
+
+    try {
+      const parsed = JSON.parse(payload) as {
+        choices?: Array<{
+          delta?: {
+            content?: string;
+            reasoning?: string;
+            reasoning_content?: string;
+            thinking?: string;
+            thought?: string;
+            analysis?: string;
+            tool_calls?: Array<{ function?: { name?: string } }>;
+            tool_name?: string;
+            function_call?: { name?: string };
+          };
+          message?: {
+            content?: string;
+            reasoning?: string;
+            reasoning_content?: string;
+            thinking?: string;
+            thought?: string;
+            analysis?: string;
+          };
+        }>;
+        delta?: {
+          content?: string;
+          reasoning?: string;
+          reasoning_content?: string;
+          thinking?: string;
+          thought?: string;
+          analysis?: string;
+        };
+        event?: string;
+        type?: string;
+        output_text?: string;
+        message?: {
+          content?: string;
+          text?: string;
+        };
+      };
+      if (eventName && !parsed.event) {
+        parsed.event = eventName;
+      }
+
+      if (state.debugSamplesLogged < 8) {
+        state.debugSamplesLogged += 1;
+        const choice0 = (parsed.choices?.[0] ?? {}) as Record<string, unknown>;
+        const delta = (choice0.delta ?? parsed.delta ?? {}) as Record<string, unknown>;
+        const message = (choice0.message ?? parsed.message ?? {}) as Record<string, unknown>;
+        chatDebug('stream.sample', {
+          event: eventName || parsed.event || '',
+          type: parsed.type || '',
+          deltaKeys: Object.keys(delta).slice(0, 8),
+          messageKeys: Object.keys(message).slice(0, 8),
+          rootKeys: Object.keys(parsed).slice(0, 10),
+        });
+      }
+
+      const deltaTextsPrimary = [
+        ...extractContentTexts(parsed.choices?.[0]?.delta),
+        ...extractContentTexts(parsed.delta),
+      ];
+      const deltaTextsFallback =
+        deltaTextsPrimary.length > 0
+          ? []
+          : [
+              ...extractContentTexts(parsed.choices?.[0]?.message),
+              ...extractContentTexts(parsed.message),
+              ...extractContentTexts(parsed),
+            ];
+      const deltaTexts = deltaTextsPrimary.length > 0 ? deltaTextsPrimary : deltaTextsFallback;
+      const eventHint = `${eventName} ${parsed.event ?? ''} ${parsed.type ?? ''}`.trim();
+      const isReasoningEvent = /reason|think|analysis|thought/i.test(eventHint);
+
+      const reasoningChunks = uniqTexts([
+        ...extractReasoningTexts(parsed.choices?.[0]?.delta),
+        ...extractReasoningTexts(parsed.choices?.[0]?.message),
+        ...extractReasoningTexts(parsed.delta),
+        ...extractReasoningTexts(parsed.message),
+        ...extractReasoningTexts(parsed),
+      ]);
+      if (reasoningChunks.length > 0) {
+        reasoningCount += 1;
+        onReasoning?.(reasoningChunks.join('\n'));
+      }
+      if (reasoningChunks.length === 0 && isReasoningEvent && deltaTexts.length > 0) {
+        reasoningCount += 1;
+        onReasoning?.(deltaTexts.join('\n'));
+      } else if (deltaTexts.length > 0) {
+        const text = deltaTexts.join('');
+        deltaChars += text.length;
+        onDelta(text);
+      }
+
+     
+      const deltaObj = parsed.choices?.[0]?.delta;
+      const messageObj = parsed.choices?.[0]?.message as Record<string, unknown> | undefined;
+      const toolSignal = extractToolSignal({
+        parsed,
+        eventName,
+        deltaObj: (deltaObj as Record<string, unknown> | undefined) ?? undefined,
+        messageObj,
+      });
+      if (toolSignal.hasToolEvent) {
+        toolEvents += 1;
+        onToolEvent?.({
+          toolName: toolSignal.toolName,
+          detail: toolSignal.detail,
+        });
+      }
+      if (
+        eventName ||
+        parsed.event ||
+        parsed.type ||
+        reasoningChunks.length > 0 ||
+        (deltaTexts.length > 0 && deltaTextsPrimary.length === 0)
+      ) {
+        chatDebug('stream.event', {
+          event: eventName || parsed.event || '',
+          type: parsed.type || '',
+          reasoningEvent: isReasoningEvent,
+          deltaChars: deltaTexts.join('').length,
+          reasoningChunks: reasoningChunks.length,
+          hasToolEvent:
+            toolSignal.hasToolEvent,
+          toolName: toolSignal.toolName || '',
+          toolDetailChars: toolSignal.detail?.length ?? 0,
+          toolNameCandidates: toolSignal.candidates,
+        });
+      }
+    } catch {
+      if (state.debugSamplesLogged < 8) {
+        state.debugSamplesLogged += 1;
+        chatDebug('stream.sample.raw', {
+          event: eventName || '',
+          payloadPreview: payload.slice(0, 180),
+        });
+      }
+      if (eventName.includes('reason') || eventName.includes('thinking')) {
+        reasoningCount += 1;
+        onReasoning?.(payload);
+        continue;
+      }
+      if (eventName.includes('text') || eventName.includes('message')) {
+        deltaChars += payload.length;
+        onDelta(payload);
         continue;
       }
     }
   }
+  return { events: eventCounter, deltaChars, reasoningCount, toolEvents };
 }
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!error) return false;
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') {
+    return true;
+  }
+  const text = error instanceof Error ? `${error.name} ${error.message}` : String(error);
+  return /abort/i.test(text);
+}
+
+function extractReasoningTexts(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object') return [];
+  const keys = [
+    'reasoning',
+    'reasoning_content',
+    'reasoning_text',
+    'thinking',
+    'thinking_content',
+    'thought',
+    'thoughts',
+    'analysis',
+    'internal_reasoning',
+  ];
+  const output = new Set<string>();
+  const queue: unknown[] = [payload];
+  let iterations = 0;
+
+  while (queue.length > 0 && iterations < 120) {
+    iterations += 1;
+    const current = queue.shift();
+    if (!current || typeof current !== 'object') {
+      continue;
+    }
+    const source = current as Record<string, unknown>;
+    const typeValue = source.type;
+    const contentValue = source.content;
+    if (
+      typeof typeValue === 'string' &&
+      /reason|think|analysis|thought/i.test(typeValue) &&
+      typeof contentValue === 'string' &&
+      contentValue.trim()
+    ) {
+      output.add(contentValue.trim());
+    }
+
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === 'string' && value.trim()) {
+        output.add(value.trim());
+        continue;
+      }
+      if (Array.isArray(value)) {
+        for (const part of value) {
+          if (typeof part === 'string' && part.trim()) {
+            output.add(part.trim());
+          } else if (part && typeof part === 'object') {
+            const partText = (part as Record<string, unknown>).text;
+            if (typeof partText === 'string' && partText.trim()) {
+              output.add(partText.trim());
+            }
+          }
+        }
+      }
+    }
+
+    for (const value of Object.values(source)) {
+      if (value && typeof value === 'object') {
+        queue.push(value);
+      }
+    }
+  }
+
+  return Array.from(output);
+}
+
+function uniqTexts(parts: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const item of parts) {
+    if (!item) continue;
+    if (seen.has(item)) continue;
+    seen.add(item);
+    output.push(item);
+  }
+  return output;
+}
+
+function extractContentTexts(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object') return [];
+  const keys = ['content', 'text', 'output_text', 'delta'];
+  const output: string[] = [];
+  const queue: unknown[] = [payload];
+  let iterations = 0;
+
+  while (queue.length > 0 && iterations < 120) {
+    iterations += 1;
+    const current = queue.shift();
+    if (!current || typeof current !== 'object') continue;
+    const source = current as Record<string, unknown>;
+
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === 'string' && value.length > 0) {
+        output.push(value);
+        continue;
+      }
+      if (Array.isArray(value)) {
+        for (const part of value) {
+          if (typeof part === 'string' && part.length > 0) {
+            output.push(part);
+          } else if (part && typeof part === 'object') {
+            const partRecord = part as Record<string, unknown>;
+            const partText = partRecord.text ?? partRecord.value ?? partRecord.content;
+            if (typeof partText === 'string' && partText.length > 0) {
+              output.push(partText);
+            }
+          }
+        }
+      }
+    }
+
+    for (const value of Object.values(source)) {
+      if (value && typeof value === 'object') {
+        queue.push(value);
+      }
+    }
+  }
+
+  return output;
+}
+
+function extractAssistantText(response: unknown): string {
+  if (!response || typeof response !== 'object') return '';
+  const obj = response as Record<string, unknown>;
+  const choices = Array.isArray(obj.choices) ? obj.choices : [];
+  const firstChoice = (choices[0] ?? {}) as Record<string, unknown>;
+  const message = firstChoice.message;
+  const direct = extractContentTexts(message).join('');
+  if (direct.trim()) return direct;
+
+  const fallback = extractContentTexts(response).join('');
+  return fallback.trim();
+}
+
+function splitThinkingFromText(raw: string): { content: string; reasoning: string } {
+  if (!raw) return { content: '', reasoning: '' };
+  const tagRegex = /<\/?(think|thinking|reasoning)\s*>/gi;
+  let inThinking = false;
+  let cursor = 0;
+  let content = '';
+  let reasoning = '';
+  let match: RegExpExecArray | null;
+
+  while ((match = tagRegex.exec(raw)) !== null) {
+    const tagStart = match.index;
+    const tagText = match[0] || '';
+    const segment = raw.slice(cursor, tagStart);
+    if (segment) {
+      if (inThinking) reasoning += segment;
+      else content += segment;
+    }
+    inThinking = !tagText.startsWith('</');
+    cursor = tagStart + tagText.length;
+  }
+
+  const tail = raw.slice(cursor);
+  if (tail) {
+    if (inThinking) reasoning += tail;
+    else content += tail;
+  }
+
+  return { content, reasoning };
+}
+
+function consumeThinkingDelta(
+  state: ThinkingStreamState,
+  delta: string,
+): { contentDelta: string; reasoningDelta: string } {
+  state.raw += delta;
+  const parsed = splitThinkingFromText(state.raw);
+  const contentDelta =
+    parsed.content.length >= state.renderedContent.length
+      ? parsed.content.slice(state.renderedContent.length)
+      : parsed.content;
+  const reasoningDelta =
+    parsed.reasoning.length >= state.renderedReasoning.length
+      ? parsed.reasoning.slice(state.renderedReasoning.length)
+      : parsed.reasoning;
+  state.renderedContent = parsed.content;
+  state.renderedReasoning = parsed.reasoning;
+  return { contentDelta, reasoningDelta };
+}
+
+function extractToolName(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const source = payload as Record<string, unknown>;
+  const candidates = [
+    source.tool_name,
+    (source.tool as Record<string, unknown> | undefined)?.name,
+    (source.data as Record<string, unknown> | undefined)?.tool_name,
+    (source.data as Record<string, unknown> | undefined)?.name,
+    (source.delta as Record<string, unknown> | undefined)?.tool_name,
+  ];
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function extractToolSignal({
+  parsed,
+  eventName,
+  deltaObj,
+  messageObj,
+}: {
+  parsed: Record<string, unknown>;
+  eventName: string;
+  deltaObj?: Record<string, unknown>;
+  messageObj?: Record<string, unknown>;
+}): { hasToolEvent: boolean; toolName?: string; detail?: string; candidates: string[] } {
+  const parsedData = parsed.data as Record<string, unknown> | undefined;
+  const parsedToolRaw = parsed.tool;
+  const parsedTool = (parsedToolRaw && typeof parsedToolRaw === 'object'
+    ? (parsedToolRaw as Record<string, unknown>)
+    : undefined);
+  const parsedDelta = parsed.delta as Record<string, unknown> | undefined;
+  const rootToolCalls = parsed.tool_calls as unknown[] | undefined;
+  const deltaToolCalls = deltaObj?.tool_calls as unknown[] | undefined;
+  const messageToolCalls = messageObj?.tool_calls as unknown[] | undefined;
+  const dataToolCalls = parsedData?.tool_calls as unknown[] | undefined;
+
+  const candidates = uniqTexts(
+    [
+      deltaObj?.tool_name,
+      (deltaObj?.function_call as Record<string, unknown> | undefined)?.name,
+      getFirstToolCallName(deltaToolCalls),
+      messageObj?.tool_name,
+      (messageObj?.function_call as Record<string, unknown> | undefined)?.name,
+      getFirstToolCallName(messageToolCalls),
+      parsedDelta?.tool_name,
+      (parsedDelta?.function_call as Record<string, unknown> | undefined)?.name,
+      getFirstToolCallName(parsedDelta?.tool_calls as unknown[] | undefined),
+      parsed.tool_name,
+      getFirstToolCallName(rootToolCalls),
+      parsedData?.tool_name,
+      parsedData?.name,
+      parsed.label as string | undefined,
+      parsedToolRaw as string | undefined,
+      getFirstToolCallName(dataToolCalls),
+      (parsedTool?.function as Record<string, unknown> | undefined)?.name,
+      parsedTool?.name,
+      extractToolName(parsed),
+    ].filter((item): item is string => typeof item === 'string' && item.trim().length > 0),
+  );
+
+  const eventHint = `${eventName} ${String(parsed.event ?? '')} ${String(parsed.type ?? '')}`.toLowerCase();
+  const hasToolEvent =
+    Boolean(deltaToolCalls?.length) ||
+    Boolean(messageToolCalls?.length) ||
+    Boolean(rootToolCalls?.length) ||
+    Boolean(dataToolCalls?.length) ||
+    Boolean(deltaObj?.tool_name || messageObj?.tool_name || parsed.tool_name || parsedData?.tool_name) ||
+    Boolean((deltaObj?.function_call as Record<string, unknown> | undefined)?.name) ||
+    Boolean((messageObj?.function_call as Record<string, unknown> | undefined)?.name) ||
+    eventHint.includes('tool') ||
+    eventHint.includes('function_call');
+
+  const detail = formatToolDetail(parsed, eventName);
+
+  return {
+    hasToolEvent,
+    toolName: candidates[0],
+    detail,
+    candidates,
+  };
+}
+
+function getFirstToolCallName(toolCalls: unknown[] | undefined): string | undefined {
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return undefined;
+  for (const call of toolCalls) {
+    if (!call || typeof call !== 'object') continue;
+    const record = call as Record<string, unknown>;
+    const functionObj = record.function as Record<string, unknown> | undefined;
+    const name = functionObj?.name ?? record.name;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  }
+  return undefined;
+}
+
+function formatToolDetail(parsed: Record<string, unknown>, eventName: string): string | undefined {
+  const lines: string[] = [];
+  const toolRaw = parsed.tool;
+  const labelRaw = parsed.label;
+  const statusRaw = parsed.status;
+  const toolCallIdRaw = parsed.toolCallId ?? parsed.tool_call_id;
+  const emojiRaw = parsed.emoji;
+
+  if (typeof eventName === 'string' && eventName.trim()) lines.push(`event: ${eventName.trim()}`);
+  if (typeof toolRaw === 'string' && toolRaw.trim()) lines.push(`tool: ${toolRaw.trim()}`);
+  if (typeof labelRaw === 'string' && labelRaw.trim()) lines.push(`label: ${labelRaw.trim()}`);
+  if (typeof statusRaw === 'string' && statusRaw.trim()) lines.push(`status: ${statusRaw.trim()}`);
+  if (typeof toolCallIdRaw === 'string' && toolCallIdRaw.trim()) lines.push(`toolCallId: ${toolCallIdRaw.trim()}`);
+  if (typeof emojiRaw === 'string' && emojiRaw.trim()) lines.push(`emoji: ${emojiRaw.trim()}`);
+
+  const args = pickSerializableField(parsed, ['arguments', 'args', 'input', 'params', 'parameters']);
+  if (args) lines.push(`args:\n${args}`);
+  const result = pickSerializableField(parsed, ['result', 'output', 'response', 'data']);
+  if (result) lines.push(`result:\n${result}`);
+
+  if (lines.length === 0) return undefined;
+  return lines.join('\n');
+}
+
+function pickSerializableField(source: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = source[key];
+    if (value == null) continue;
+    if (typeof value === 'string') {
+      if (value.trim()) return value.trim();
+      continue;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    if (typeof value === 'object') {
+      try {
+        const text = JSON.stringify(value);
+        if (text && text !== '{}' && text !== '[]') return text;
+      } catch {
+        // ignore unserializable payload
+      }
+    }
+  }
+  return undefined;
 }
 
 function extractHermesVersion(payload: unknown): string | null {

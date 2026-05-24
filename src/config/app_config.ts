@@ -1,5 +1,5 @@
 export const APP_CONFIG = {
-  appVersion: 'v0.1',
+  appVersion: 'v0.3',
   authorXhsUrl: 'https://xhslink.com/m/1pRHxd9V2xH',
   androidApkDownloadUrl: 'https://github.com/2winter-dev/iHermes/releases/tag/beta0.1',
   openSourceRepoUrl: 'https://github.com/2winter-dev/iHermes',

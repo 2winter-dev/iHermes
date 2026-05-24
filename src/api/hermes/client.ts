@@ -52,8 +52,9 @@ export class HermesApiClient {
 
   async chatCompletion(
     request: HermesChatCompletionRequest,
+    options?: { timeoutMs?: number; signal?: AbortSignal },
   ): Promise<HermesChatCompletionResponse> {
-    return this.post<HermesChatCompletionResponse>('/v1/chat/completions', request);
+    return this.post<HermesChatCompletionResponse>('/v1/chat/completions', request, options);
   }
 
   async createRun(payload: unknown): Promise<HermesRun> {
@@ -76,28 +77,63 @@ export class HermesApiClient {
     return this.request<T>(path, { method: 'GET' });
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(path: string, body: unknown, options?: { timeoutMs?: number; signal?: AbortSignal }): Promise<T> {
     return this.request<T>(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    });
+    }, options);
   }
 
-  private async request<T>(path: string, init: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        ...(init.headers ?? {}),
-      },
-    });
+  private async request<T>(
+    path: string,
+    init: RequestInit,
+    options?: { timeoutMs?: number; signal?: AbortSignal },
+  ): Promise<T> {
+    const timeoutMs = options?.timeoutMs;
+    const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let releaseExternalAbort: (() => void) | null = null;
 
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+    if (timeoutMs && timeoutMs > 0) {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
     }
 
-    return text ? (JSON.parse(text) as T) : ({} as T);
+    if (options?.signal) {
+      if (options.signal.aborted) {
+        controller.abort();
+      } else {
+        const onAbort = () => controller.abort();
+        options.signal.addEventListener('abort', onAbort, { once: true });
+        releaseExternalAbort = () => options.signal?.removeEventListener('abort', onAbort);
+      }
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          ...(init.headers ?? {}),
+        },
+      });
+
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+      }
+
+      return text ? (JSON.parse(text) as T) : ({} as T);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (releaseExternalAbort) {
+        releaseExternalAbort();
+      }
+    }
   }
 }

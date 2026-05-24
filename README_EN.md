@@ -18,7 +18,7 @@
 <p align="center">
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/2winter-dev/iHermes?style=flat-square"/></a>
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-blue?style=flat-square"/>
-  <img alt="Expo" src="https://img.shields.io/badge/Expo-SDK%2056-4630EB?style=flat-square&logo=expo"/>
+  <img alt="Expo" src="https://img.shields.io/badge/Expo-SDK%2054-4630EB?style=flat-square&logo=expo"/>
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-Yes-3178C6?style=flat-square&logo=typescript"/>
 </p>
 
@@ -49,6 +49,24 @@
 - Animation switch
 - **Multilingual support: Chinese / English, default follows device language, fallback to English**
 - Version / help / FAQ
+
+## Changelog (v0.3)
+
+### New Features
+- Added a native share button to quickly share the iHermes repository URL (button label now includes app version).
+- Added a `Process Details` toggle in Settings and grouped it with `Animations` under `Other`.
+- Refined Version panel: now shows `Default Model/Data` and places the share action on the same row.
+- Added a new FAQ item for iOS quick start: install Expo Go and scan QR to use iHermes without installation.
+- Added basic Markdown rendering in chat bubbles (headings, bold, links, images, and tables).
+- Enhanced execution visibility in chat with richer tool-call and process detail rendering.
+
+### Fixes & Improvements
+- Fixed top title wrapping: `iHermes Chat` now stays on one line on narrow screens.
+- Removed non-stream fallback path; chat now consistently uses streaming output.
+- Fixed disabled/off-state visual feedback in settings toggles (background color now changes correctly).
+- Improved long-request reliability with timeout, suspend/abort handling, and clearer status/error behavior.
+- Improved tool button and chat toolbar styling for better readability and interaction.
+- Avoided native chat-history size issues by skipping large chat-history persistence on native platforms (SecureStore limit workaround).
 
 ## Run Locally
 
